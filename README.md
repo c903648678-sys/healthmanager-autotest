@@ -143,6 +143,17 @@ flowchart LR
 | 添加产品用例 | 参考 [API 健康检查](api/testcases/health/) 或 [UI 首页冒烟](ui/testcases/home/)，在同一目录维护 `case_spec.json` 和 `test_main.py`。 |
 | 让后续模型接手 | 从 [AGENTS.md](AGENTS.md) 了解开发约定和回归入口，再按任务阅读对应模块。[工作台迁移记录](docs/workbench-migration.md) 说明代码来源和历史决策。 |
 
+## 知识库资料放在哪里
+
+正式资料在仓库根目录的 [knowledge/](knowledge/) 统一维护。下面的两个共享目录会随 Git 克隆；首次打开时为空。将 UTF-8 编码的 Markdown 或 TXT 放入相应目录，在工作台知识库刷新本地目录后即可审阅和引用。单份文件上限为 200 KB。
+
+| 路径 | 存放内容 |
+| --- | --- |
+| `knowledge/product/<模块>/<特性>/` | 产品需求、业务规则、接口或页面契约。模块名和特性名随实际产品确定。 |
+| `knowledge/testing/<主题>/` | 团队共享的测试方法、数据约定和验收规范。 |
+| `.local/workbench/knowledge/notes/` | 本机测试笔记和从执行反馈采纳的知识。 |
+| `.local/workbench/knowledge/` | 本机扫描索引、审阅历史及分类信息。通过界面导入的正文保存在 organization.json；需要团队共享时，将正式原文放入上面的共享目录并提交。 |
+
 ## 换电脑时带哪些内容
 
 | 内容 | 迁移方式 |

@@ -269,7 +269,11 @@ def make_server(port=8878, folder=None, runner=None):
     server.store = JobStore(folder or ROOT / ".local/workbench/jobs", **options)
     server.workspace = Workspace((server.store.folder / 'workspace.json') if folder else ROOT / '.local/workbench/workspace.json', server.store)
     (server.workspace.path.parent / 'knowledge/notes').mkdir(parents=True, exist_ok=True)
-    server.knowledge = Knowledge(server.workspace.path.parent / 'knowledge', {'ui-specs': ROOT / 'ui/specs', 'workbench-notes': server.workspace.path.parent / 'knowledge/notes'})
+    server.knowledge = Knowledge(server.workspace.path.parent / 'knowledge', {
+        'product': ROOT / 'knowledge/product',
+        'testing': ROOT / 'knowledge/testing',
+        'workbench-notes': server.workspace.path.parent / 'knowledge/notes',
+    })
     from .knowledge_suggestions import KnowledgeSuggestions
     server.knowledge_suggestions = KnowledgeSuggestions(server.knowledge)
     server.execution = Execution(server.workspace.path.parent / 'execution', server.workspace)
