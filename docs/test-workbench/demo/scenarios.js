@@ -42,9 +42,9 @@ function taskPage(){
   const idx=j.steps.indexOf(tab);
   return `<button class="link small" data-nav="home">← 返回工作台</button>`+
     title(esc(t.name),`目标版本 ${esc(t.version||'待填写')}${t.requirementNo?' · 需求 '+esc(t.requirementNo):''}`)+
-    `<nav class="task-sections" aria-label="任务内工作">${['design','automation','issues','change','summary'].map(key=>
+    (journey==='design'?'':`<nav class="task-sections" aria-label="任务内工作">${['design','automation','issues','change','summary'].map(key=>
       `<button type="button" aria-current="${journey===key?'page':'false'}" data-action="direct:${key}:${esc(t.id)}">${esc(journeys[key].name)}</button>`
-    ).join('')}</nav>`+
+    ).join('')}</nav>`)+
     `<div class="journey-banner"><div><b>本次目标：${j.output}</b><p class="subtitle">${j.hint}</p></div>${badge(t.stage)}</div>`+
     `<div class="journey-steps" role="tablist">${j.steps.map((s,i)=>`<button role="tab" aria-selected="${tab===s}" data-tab="${s}" class="${s===tab?'active':''}"><span>${i+1}</span>${stepName(s)}</button>`).join('')}</div>`+
     (journey==='automation'?taskScriptPanel(t):({sources,requirements,plan,cases,execution,issues,summary,changes}[tab])())+
