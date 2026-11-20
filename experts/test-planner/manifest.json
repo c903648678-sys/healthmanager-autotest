@@ -1,0 +1,13 @@
+{
+  "id": "test-planner",
+  "name": "测试方案设计专家",
+  "version": "1.0.0",
+  "prompt": "prompt.md",
+  "references": [
+    {
+      "path": "experts/test-planner/reference-0.md",
+      "start": "- **测试设计技术自动选择**",
+      "end": "<!-- END -->"
+    }
+  ]
+}

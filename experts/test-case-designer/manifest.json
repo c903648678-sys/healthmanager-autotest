@@ -1,0 +1,7 @@
+{
+  "id": "test-case-designer",
+  "name": "测试用例设计专家",
+  "version": "1.0.0",
+  "prompt": "prompt.md",
+  "references": []
+}

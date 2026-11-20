@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.auth/
+outputs/
+.env
+config.local.json
+.local/

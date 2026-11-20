@@ -1,0 +1,9 @@
+{
+  "case_name": "健康管理首页冒烟",
+  "feature": "基础冒烟",
+  "status": "ready",
+  "steps": "打开已配置的健康管理首页",
+  "expected": "HTTP 成功且标题匹配配置",
+  "preconditions": "已配置测试环境网址和页面标题",
+  "priority": "P0"
+}

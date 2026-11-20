@@ -1,0 +1,7 @@
+{
+  "environment": "test",
+  "base_url": "",
+  "api_base_url": "",
+  "health_path": "",
+  "expected_title": ""
+}

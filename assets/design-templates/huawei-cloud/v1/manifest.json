@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "collection": "华为云测试设计模板（用户提供）",
+  "source": "D:\\GitHub\\测试设计模板",
+  "provenance": "用户提供，未另行核验官方发布版本",
+  "templates": [
+    {
+      "id": "app",
+      "name": "App测试策略模板",
+      "scope": "移动端功能、界面、兼容、稳定性与资源消耗",
+      "version": "1.0.0",
+      "filename": "App测试策略模板.xmind",
+      "sha256": "563e317ac10a34211d190c66734b71dc496ec50f3e9d0ec964315abcb3995365",
+      "outlineSha256": "ecd666f20f7ef6ec7912653d89a8a1d4f4d23d1fd83e7b6b52d1d568f9940cbb",
+      "nodeCount": 123,
+      "sheetCount": 1
+    },
+    {
+      "id": "e2e",
+      "name": "E2E场景测试设计模板",
+      "scope": "跨角色、入口和业务流程的端到端场景；默认基础模板",
+      "version": "1.0.0",
+      "filename": "E2E场景测试设计模板.xmind",
+      "sha256": "15d95c702986086471ed455f4c1440f29fb2ed5a5dff46a13fb48be37982410e",
+      "outlineSha256": "d716f531453f45cea83aa6e4697b6b6fefee9f6f67aa7f35e665be6665f68a4d",
+      "nodeCount": 133,
+      "sheetCount": 1
+    },
+    {
+      "id": "reliability",
+      "name": "可靠性测试设计",
+      "scope": "故障模式、典型对象、检测、降级及恢复",
+      "version": "1.0.0",
+      "filename": "可靠性测试设计.xmind",
+      "sha256": "1e8743e40f667445375ab13a4a50dc4c85c34e4a8a99bf467481a37dd19679bd",
+      "outlineSha256": "5a58321d84d7facd4c27fd820360bd0dd54709846de93ca398cc373f60a42610",
+      "nodeCount": 54,
+      "sheetCount": 1
+    },
+    {
+      "id": "security",
+      "name": "安全隐私测试设计模板",
+      "scope": "通用安全、数据生命周期、隐私、白盒及 Fuzz",
+      "version": "1.0.0",
+      "filename": "安全隐私测试设计模板.xmind",
+      "sha256": "e56e285876db1c970dd709e6d2b295fec56932725e69fb470d4df26f47997cf8",
+      "outlineSha256": "ae3d45cf167531716f6d4b7eb3b66f39a62bfe1bea1b0294dfa72bf5785996ae",
+      "nodeCount": 486,
+      "sheetCount": 1
+    },
+    {
+      "id": "performance",
+      "name": "性能测试设计模板",
+      "scope": "环境、负载模型、性能方法与场景指标",
+      "version": "1.0.0",
+      "filename": "性能测试设计模板.xmind",
+      "sha256": "ae057b445bc11831c634594100dc3ba9e995f42679d9e14f052eaba5e9d21f11",
+      "outlineSha256": "b5a16d2f2a324c5368383be383157b1061593c17705b6e5bb320e6c868f0a14d",
+      "nodeCount": 309,
+      "sheetCount": 1
+    },
+    {
+      "id": "api",
+      "name": "接口测试设计模板",
+      "scope": "接口参数、功能、性能、可靠性、安全及兼容性",
+      "version": "1.0.0",
+      "filename": "接口测试设计模板.xmind",
+      "sha256": "4d18b89897ddb99da91063233e9c2a09cc94f6fe5cb662a18aa328f8db488713",
+      "outlineSha256": "a3c5843d4972ce8d1301633eb44bc04918d3adaea9c9bba588cb6b0c2e9bdbd8",
+      "nodeCount": 241,
+      "sheetCount": 1
+    },
+    {
+      "id": "vehicle-cloud",
+      "name": "车联网云服务应用设计模版",
+      "scope": "车联网云服务行业专项，仅相关需求适用",
+      "version": "1.0.0",
+      "filename": "车联网云服务应用设计模版.xmind",
+      "sha256": "d8543c2ee2a6f587c94ba0982a0c0e4e1a23308457a6c0e785556432df419450",
+      "outlineSha256": "7409b7ce88148c101e1537ef1d5ab16d854d4fd090d8ce2283e52efef9f01591",
+      "nodeCount": 109,
+      "sheetCount": 1
+    },
+    {
+      "id": "vehicle-device",
+      "name": "车载设备应用设计模版",
+      "scope": "车载设备行业专项，仅相关需求适用",
+      "version": "1.0.0",
+      "filename": "车载设备应用设计模版.xmind",
+      "sha256": "e1a623efe006d46da01838c4325f3c0eb836e8427bf391d1027db3b3817c7726",
+      "outlineSha256": "1550acd9cc7ba95ce4eb9e96ca8eb34ed6f957422df785f8aa0d8db95f6e303b",
+      "nodeCount": 99,
+      "sheetCount": 1
+    },
+    {
+      "id": "integration",
+      "name": "集成测试设计模板",
+      "scope": "跨特性交互、数据、配置、组网与上线准入",
+      "version": "1.0.0",
+      "filename": "集成测试设计模板.xmind",
+      "sha256": "35dd9d2a70f305b6891dd2c4d6e00ae63821b3c144362a166eaa8b22d1527fa5",
+      "outlineSha256": "b2bff3ec5d4b257f54d21a9a6d4b6ac04ac90bcc6f93a0e54517b6b0737306fe",
+      "nodeCount": 265,
+      "sheetCount": 1
+    }
+  ]
+}
