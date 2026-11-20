@@ -11,7 +11,7 @@ import uuid
 
 from .contracts import ROOT, digest
 from .workspace import Conflict
-from .ui_inventory import script_has_skip
+import ast
 from .ui_execution import MAX_UI_WORKERS, UIExecutor, execution_workers, reconcile, pause_acknowledged
 from .lease import WorkspaceLease
 from .asset_transfer import export_package, prepare_import
@@ -70,7 +70,7 @@ class Automation:
                     try:
                         request=json.loads((directory/'request.json').read_text(encoding='utf-8'))
                         if request==snapshot and request.get('runId',identity)==identity:
-                            result=UIExecutor.read_evidence(directory,None)
+                            result=self.executor.read_evidence(directory,None) if hasattr(self.executor, "read_evidence") else UIExecutor.read_evidence(directory,None)
                     except (OSError,ValueError):
                         pass
                     self._finish_run(run,result,missing='unknown')
@@ -186,29 +186,29 @@ class Automation:
     def _row_binding(self,row,product):
         if not row or row['product']!=product: raise ValueError('脚本未扫描或产品不匹配')
         if row.get('admission')!='静态可执行':raise ValueError('脚本未通过扫描准入：'+row.get('reason','请刷新资产'))
+        layer = row.get('layer', 'UI')
+        if layer not in ('API','UI'): raise ValueError('脚本类型无效')
         files={}
         for key in ('specPath','scriptPath'):
             path=(ROOT/row[key]).resolve() if row.get(key) else None
-            if path is None or not path.is_relative_to((ROOT/'ui/testcases').resolve()) or not path.is_file():raise ValueError('规格或脚本路径无效')
+            if path is None or not path.is_relative_to((ROOT/layer.lower()/'testcases').resolve()) or not path.is_file():raise ValueError('规格或脚本路径无效')
             content=path.read_bytes()
             if key=='scriptPath':
                 try:
-                    skips=script_has_skip(content)
+                    ast.parse(content)
                 except (SyntaxError,UnicodeError) as exc:
                     raise ValueError('脚本无法解析，请修复后重新扫描') from exc
-                if skips:
-                    raise ValueError('当前脚本含 skip/skipif，未通过扫描准入')
             files[row[key]]=hashlib.sha256(content).hexdigest()
         spec=json.loads((ROOT/row['specPath']).read_text(encoding='utf-8-sig'))
         if row.get('shared'):
             shared=(ROOT/row['scriptPath']).parent/'case_spec.json'
-            if not shared.resolve().is_relative_to((ROOT/'ui/testcases').resolve()):raise ValueError('公共规格路径无效')
+            if not shared.resolve().is_relative_to((ROOT/layer.lower()/'testcases').resolve()):raise ValueError('公共规格路径无效')
             business=json.loads(shared.read_text(encoding='utf-8-sig'))
             files[shared.relative_to(ROOT).as_posix()]=hashlib.sha256(shared.read_bytes()).hexdigest()
         else:business=spec
         if any(row.get(k,'')!=business.get(k,'') for k in ('steps','expected','preconditions')) or row['title']!=(business.get('case_name') or spec.get('case_name') or (ROOT/row['specPath']).parent.name):
             raise ValueError('规格已变化，请先刷新测试资产，再核对关联')
-        return {'inventoryId':row['assetId'],'files':files,'admission':row['admission'],'reason':row.get('reason','')}
+        return {'inventoryId':row['assetId'],'layer':layer,'files':files,'admission':row['admission'],'reason':row.get('reason','')}
 
     def publish(self,raw):
         with self.workspace.lock,self.lock:
@@ -229,7 +229,7 @@ class Automation:
         content={'title':case['title'],'product':product,'subproduct':subproduct,'feature':feature,'layer':case['layer'],
                  'spec':deepcopy(case),'source':{'taskId':task_id,'jobId':job_id,'caseId':case_id,'requirementNo':task.get('requirementNo',''),'reviewDigest':job['reviewDigest']},'binding':None}
         if raw.get('scriptAssetId'):content['binding']=self._binding(raw['scriptAssetId'],product)
-        if content['binding'] and content['layer']!='UI':raise ValueError('当前脚本适配器仅支持 UI')
+        if content['binding'] and content['layer']!=content['binding'].get('layer','UI'):raise ValueError('脚本类型与用例不符')
         return content
 
     def import_ui(self,raw):
@@ -245,7 +245,7 @@ class Automation:
 
     @staticmethod
     def _inventory_content(row,binding):
-        return {'title':row['title'],'product':row['product'],'subproduct':row['feature'].split('/')[0], 'feature':row['feature'],'layer':'UI',
+        return {'title':row['title'],'product':row['product'],'subproduct':row['feature'].split('/')[0], 'feature':row['feature'],'layer':row.get('layer','UI'),
                  'spec':{k:row.get(k,'') for k in ('id','title','priority','preconditions','steps','expected')},'binding':binding,
                  'source':{'inventoryId':row['assetId'],'kind':'existing-ui-script'}}
 
@@ -307,8 +307,8 @@ class Automation:
     def bind(self,raw):
         with self.lock:
             item=self.find('assets',required(raw,'id'));content=deepcopy(item['versions'][-1]['content'])
-            if content['layer']!='UI':raise ValueError('当前仅支持绑定 UI 脚本')
             content['binding']=self._binding(required(raw,'scriptAssetId'),content['product'])
+            if content['layer'] != content['binding'].get('layer','UI'): raise ValueError('脚本类型与用例不符')
             return self._version('assets',raw,content,'asset')
 
     def suite(self,raw):

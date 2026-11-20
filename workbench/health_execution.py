@@ -1,72 +1,167 @@
-"""Health product adapter for the migrated versioned execution workbench."""
+"""Run versioned health test assets and checkpoint sanitized results."""
 import hashlib
 import json
 import os
+from pathlib import Path
 import subprocess
+import tempfile
 import time
 import xml.etree.ElementTree as ET
-from pathlib import Path
+
+from scripts.run import validate
 from .ui_execution import UIExecutor
 from .contracts import ROOT
-from scripts.run import validate
+
+
+def checkpoint(path, value):
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
+    temporary.replace(path)
+
+
+def classify(report, code):
+    try:
+        cases = ET.parse(report).findall('.//testcase')
+    except (ET.ParseError, OSError):
+        cases = []
+    for tag, status, phase in [('error', 'error', 'fixture / collection'),
+                               ('failure', 'failed', 'call'), ('skipped', 'skipped', 'skip')]:
+        for case in cases:
+            element = case.find(tag)
+            if element is not None:
+                if tag == 'skipped' and code != 0:
+                    return 'error', 'pytest', 'pytest 退出异常'
+                # Keep exception classes only; tracebacks and parameter values may contain health data.
+                details = element.text or ''
+                for name in ('AssertionError', 'TimeoutError', 'ReadTimeout', 'ReadError',
+                             'ConnectionError', 'TypeError', 'ValueError', 'RuntimeError', 'KeyError'):
+                    if name in details:
+                        return status, phase, name
+                return status, phase, {'error':'pytest error','failure':'测试断言或调用失败','skipped':'pytest skip'}[tag]
+    if not cases or code:
+        return 'error', 'pytest', '缺少有效测试结果或退出异常'
+    return 'passed', 'call', '测试通过'
+
 
 class HealthExecutor(UIExecutor):
     supports_pause = False
+    timeout = 600
 
-    def login_action(self,raw):
-        raise ValueError("产品登录机制尚未提供，暂未接入登录态管理")
+    @staticmethod
+    def read_evidence(folder, exit_code):
+        path = folder/'result.json'
+        if path.exists():
+            result = json.loads(path.read_text(encoding='utf-8'))
+            if result.get('format') == 'health-v1' and isinstance(result.get('results'), list):
+                return result
+        return UIExecutor.read_evidence(folder, exit_code)
+
+    def __init__(self, root=ROOT):
+        super().__init__(root)
+        self.api_python = self.root/'api'/'.venv'/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
+
+    def login_action(self, raw):
+        raise ValueError('产品登录机制尚未配置')
 
     def environments(self):
-        path=self.root/'config.local.json'
-        if not path.exists():
-            return {'environments':[], 'error':'尚未配置健康管理测试环境，请填写 config.local.json'}
-        config=json.loads(path.read_text(encoding='utf-8'))
-        try: validate('ui')
-        except ValueError as exc: return {'environments':[], 'error':str(exc)}
-        return {'environments':[{'id':config.get('environment','test'),'name':'健康管理测试环境','product':'健康管理','baseUrl':config['base_url']}]}
+        for project in ('ui', 'api'):
+            try:
+                config = validate(project, self.root)
+                return {'environments':[{'id':config.get('environment','test'),
+                        'name':'健康管理测试环境','product':'健康管理',
+                        'baseUrl':config.get('base_url') or config.get('api_base_url')}]}
+            except (ValueError, OSError):
+                continue
+        return {'environments':[], 'error':'请配置 UI 或 API 测试环境'}
 
-    def execute(self,snapshot,folder,event,progress):
-        validate('ui')
+    def script(self, case):
+        content = case['content']
+        project = content.get('layer', 'UI').lower()
+        if project not in ('api','ui'):
+            raise ValueError('不支持的执行类型')
+        binding = content.get('binding') or {}
+        scripts = []
+        for name, digest in binding.get('files', {}).items():
+            path = (self.root / name).resolve()
+            if not path.is_relative_to((self.root/project/'testcases').resolve()) or not path.is_file():
+                raise ValueError('规格或脚本路径无效')
+            if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                raise ValueError('脚本版本已变化，请重新扫描并绑定')
+            if path.suffix == '.py':
+                scripts.append(path)
+        if len(scripts) != 1:
+            raise ValueError('每条资产须绑定一个测试脚本')
+        return project, scripts[0]
+
+    def run_script(self, project, script, mode, event):
+        python = self.python if project == 'ui' else self.api_python
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp)/'report.xml'
+            process = subprocess.Popen([str(python), '-m','pytest',str(script),f'--junitxml={report}'],
+                cwd=self.root/project, env={**os.environ,'HM_HEADED':str(int(mode=='headed'))},
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            deadline = time.monotonic()+self.timeout
+            while process.poll() is None:
+                if event.wait(.15) or time.monotonic() >= deadline:
+                    if os.name == 'nt':
+                        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
+                    else:
+                        process.kill()
+                    process.wait()
+                    if event.is_set():
+                        return 'interrupted','execution','用户取消'
+                    return 'error','timeout','执行超时'
+            return classify(report, process.returncode)
+
+    def execute(self, snapshot, folder, event, progress):
+        if snapshot.get('workers',1) != 1:
+            raise ValueError('执行器仅支持串行执行')
         if snapshot['environment'] not in [e['id'] for e in self.environments()['environments']]:
-            raise ValueError('执行环境不存在')
-        if snapshot.get('workers',1)!=1:
-            raise ValueError('健康管理执行器当前支持串行执行，请将并发数设为 1')
-        folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
-        (folder/'request.json').write_text(json.dumps(snapshot,ensure_ascii=False),encoding='utf-8')
-        rows=[]
-        for index,case in enumerate(snapshot['cases']):
-            if event.is_set():break
-            binding=case['content'].get('binding')
-            if not binding:raise ValueError('用例尚未绑定测试脚本')
-            scripts=[]
-            for name,digest in binding['files'].items():
-                path=(self.root/name).resolve()
-                if not path.is_relative_to((self.root/'ui/testcases').resolve()) or not path.is_file():
-                    raise ValueError('脚本路径无效')
-                if hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('脚本版本已变化，请重新扫描并绑定')
-                if path.suffix=='.py':scripts.append(path)
-            if len(scripts)!=1:raise ValueError('每条资产须对应一个测试脚本')
-            report=folder/f'case-{index}.xml'
+            raise ValueError('测试环境未配置或不可用')
+        folder = Path(folder)
+        folder.mkdir(parents=True, exist_ok=True)
+        checkpoint(folder/'request.json', snapshot)
+        rows = []
+        def save(status, message):
+            result = {'format':'health-v1','status':status,'results':rows,'exitCode':0 if status=='passed' else 1,'message':message}
+            checkpoint(folder/'result.json', result)
+            return result
+
+        def check(case):
+            project, script = self.script(case)
+            validate(project, self.root)
+            return project, script
+
+        def blocked(case, exc):
+            rows.append({'assetId':case['assetId'],'status':'blocked','phase':'preflight','message':str(exc)})
+            return save('blocked','用例执行前检查失败')
+
+        for case in snapshot['cases']:
+            try:
+                check(case)
+            except (ValueError, OSError) as exc:
+                return blocked(case, exc)
+        for case in snapshot['cases']:
+            if event.is_set():
+                return save('cancelled','用户取消')
+            try:
+                project, script = check(case)
+            except (ValueError, OSError) as exc:
+                return blocked(case, exc)
             progress('开始独立上下文执行：'+case['content']['title'])
-            # Output bodies are intentionally not persisted; JUnit is used only to classify results.
-            with open(os.devnull,'w') as log:
-                process=subprocess.Popen([str(self.python),'-m','pytest',str(scripts[0]),'-q',f'--junitxml={report}'],cwd=self.ui,stdout=log,stderr=log,
-                    env={**os.environ,'HM_HEADED':'1' if snapshot.get('browserMode')=='headed' else '0'},
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
-                deadline=time.monotonic()+600
-                while process.poll() is None:
-                    if event.wait(0.2) or time.monotonic()>deadline:
-                        if os.name=='nt':subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
-                        else:process.kill()
-                        process.wait();break
-            status='failed'
-            if event.is_set():status='interrupted'
-            elif process.returncode==0 and report.exists():
-                cases=ET.parse(report).getroot().findall('.//testcase')
-                status='passed' if cases and all(not any(c.find(tag) is not None for tag in ('failure','error','skipped')) for c in cases) else 'incomplete'
-            rows.append({'assetId':case['assetId'],'title':case['content']['title'],'status':status,'message':'pytest 退出码：'+str(process.returncode)})
-            if report.exists():report.unlink()
-        status='cancelled' if event.is_set() else 'passed' if len(rows)==len(snapshot['cases']) and all(r['status']=='passed' for r in rows) else 'failed'
-        result={'status':status,'results':rows,'exitCode':0 if status=='passed' else 1,'message':'健康管理 pytest 执行完成'}
-        (folder/'result.json').write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')
-        return result
+            start = time.monotonic()
+            try:
+                status, phase, message = self.run_script(project, script, snapshot.get('browserMode'), event)
+            except OSError:
+                status, phase, message = 'error','launch','执行进程或报告不可用'
+            rows.append({'assetId':case['assetId'],'status':status,'phase':phase,'message':message,
+                         'durationSeconds':round(time.monotonic()-start,3)})
+            save('interrupted','已保存完成项')
+        statuses = {row['status'] for row in rows}
+        if event.is_set():
+            return save('cancelled','用户取消')
+        if statuses == {'passed'}:
+            return save('passed','全部通过')
+        if statuses & {'error','failed'}:
+            return save('failed','存在失败或执行错误')
+        return save('incomplete','存在未执行或跳过项')

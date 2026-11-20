@@ -16,3 +16,16 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(scan(root)['cases'][0]['product'],'健康管理')
             spec.unlink()
             self.assertEqual(scan(root)['cases'],[])
+
+    def test_bad_specs_and_empty_scripts_leave_valid_assets_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)/'ui'
+            for name, spec, code in [('bad','{',''),('empty','{"case_name":"empty","status":"ready"}','x=1'),
+                                     ('valid','{"case_name":"ok","status":"ready"}','def test_ok(): pass')]:
+                folder = root/'testcases'/name
+                folder.mkdir(parents=True)
+                (folder/'case_spec.json').write_text(spec)
+                (folder/'test_main.py').write_text(code)
+            result = scan(root)
+            self.assertEqual(len(result['errors']),2)
+            self.assertEqual([row['id'] for row in result['cases'] if row['admission']=='静态可执行'],['valid'])

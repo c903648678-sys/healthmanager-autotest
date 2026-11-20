@@ -2,18 +2,23 @@ name: Framework verification
 on: [push, pull_request, workflow_dispatch]
 jobs:
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [api, ui, workbench]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python scripts/bootstrap.py
-      - run: python scripts/run.py doctor
-      - run: python scripts/run.py verify
-      - run: python -m unittest discover -s workbench -t . -q
+      - run: python scripts/bootstrap.py --project ${{ matrix.suite == 'workbench' && 'all' || matrix.suite }}
+      - if: matrix.suite != 'workbench'
+        run: python scripts/run.py verify --project ${{ matrix.suite }}
+      - if: matrix.suite == 'workbench'
+        run: ui/.venv/Scripts/python.exe -m pytest workbench --junitxml=outputs/workbench/verify.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: framework-reports
-          path: outputs/
+          name: ${{ matrix.suite }}-report
+          path: outputs/${{ matrix.suite }}/verify.xml

@@ -4,10 +4,7 @@
 
 - `requirements-analyst/`：需求理解、风险和疑问分析，输出候选 JSON，不执行测试或写正式资产。
 - `test-planner/`：从已确认需求基线生成测试方案与覆盖安排，保留人工结论和未决问题；不生成详细用例或执行脚本。
-- 现有 `ui/experts/clouddoc-test-expert/` 保留为云文档专家包的唯一来源；其中的测试方法通过 manifest 按段引用，不复制维护。
-- 云文档操作、Excel、UI 桥接等执行能力仍属于旧包，不自动加载到需求分析阶段。
-
-这是共享入口的提取，不是旧专家包的整体搬迁。后续真正迁移旧包时，需一起更新 Work Agent 打包入口、相对链接、漂移检查与引用测试。
+各专家的 manifest 引用本仓的 prompt 和方法片段。更新规则时同时核对 manifest 中的路径和章节边界。
 
 专家定义职责和方法；`workbench/providers.py` 负责 Codex / Claude 调用。换模型不换业务规则。
 

@@ -1,0 +1,1 @@
+{"case_name":"健康检查接口冒烟","status":"ready","feature":"基础冒烟","steps":"请求配置的健康检查路径","expected":"返回 HTTP 200"}

@@ -17,20 +17,41 @@ def script_has_skip(content):
 def scan(root, cache=None):
     root=Path(root).resolve()
     rows=[]
-    for spec_path in sorted((root/'testcases').rglob('case_spec.json')):
-        spec=json.loads(spec_path.read_text(encoding='utf-8'))
-        script=spec_path.parent/'test_main.py'
-        relative=spec_path.parent.relative_to(root).as_posix()
-        ready=script.is_file() and spec.get('status')=='ready'
-        rows.append({'assetId':'ui/'+relative,'id':spec_path.parent.name,
-            'title':spec['case_name'],'product':'健康管理','feature':spec.get('feature','基础冒烟'),
-            'layer':'UI','specPath':'ui/'+relative+'/case_spec.json',
-            'scriptPath':'ui/'+relative+'/test_main.py','suiteTier':'smoke',
-            'admission':'静态可执行' if ready else '待完善','reason':'环境在执行前检查',
-            'shared':False,**{k:spec.get(k,'') for k in ('steps','expected','preconditions','priority')}})
+    errors = []
+    sources = []
+    for project, directory in [('ui', root), ('api', root.parent / 'api')]:
+        tree = directory / 'testcases'
+        sources.append({'product':'健康管理','path':project+'/testcases','status':'connected' if tree.is_dir() else 'missing'})
+        for spec_path in sorted(tree.rglob('case_spec.json')):
+            prefix = project + '/' + spec_path.parent.relative_to(directory).as_posix()
+            row = {'assetId':prefix,'id':spec_path.parent.name,'title':spec_path.parent.name,
+                   'product':'健康管理','feature':'基础冒烟','layer':project.upper(),
+                   'specPath':prefix+'/case_spec.json','scriptPath':prefix+'/test_main.py',
+                   'suiteTier':'smoke','admission':'待完善','reason':'','shared':False}
+            try:
+                spec = json.loads(spec_path.read_text(encoding='utf-8-sig'))
+                if not isinstance(spec, dict) or not isinstance(spec.get('case_name'), str) or not spec['case_name'].strip():
+                    raise ValueError('缺少有效的 case_name')
+                row.update(title=spec['case_name'])
+                for key in ('feature','steps','expected','preconditions','priority'):
+                    if key in spec:
+                        if not isinstance(spec[key], str): raise ValueError(key+' 应为文本')
+                        row[key] = spec[key]
+                nodes = ast.parse(spec_path.with_name('test_main.py').read_bytes()).body
+                candidates = list(nodes)
+                for node in nodes:
+                    if isinstance(node, ast.ClassDef) and node.name.startswith('Test'):
+                        candidates.extend(node.body)
+                if not any(isinstance(fn, ast.FunctionDef) and fn.name.startswith('test') for fn in candidates):
+                    raise ValueError('未发现测试函数或方法')
+                if spec.get('status') == 'ready':
+                    row.update(admission='静态可执行', reason='运行时由 pytest 收集')
+            except (OSError, ValueError, SyntaxError) as exc:
+                row['reason'] = str(exc)
+                errors.append({'path':row['specPath'],'error':str(exc)})
+            rows.append(row)
     return {'scannedAt':datetime.now(timezone.utc).isoformat(),'cases':rows,
-        'sources':[{'product':'健康管理','path':'ui/testcases','status':'connected'}],
-        'errors':[],'apiConnected':False,'_cache':{}}
+            'sources':sources,'errors':errors,'apiConnected':sources[1]['status']=='connected','_cache':{}}
 
 
 if __name__ == '__main__':

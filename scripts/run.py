@@ -9,11 +9,13 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def validate(project):
-    path = ROOT / "config.local.json"
+def validate(project, root=None):
+    path = (root or ROOT) / "config.local.json"
     if not path.exists():
         raise ValueError("Copy config.example.json to config.local.json and fill in product configuration")
     config = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("Expected a configuration object")
     fields = ("api_base_url", "health_path") if project == "api" else ("base_url", "expected_title")
     for field in fields:
         if not isinstance(config.get(field), str) or not config[field].strip():
@@ -23,6 +25,7 @@ def validate(project):
         raise ValueError("Base URL must be HTTP(S) and must not contain credentials")
     if project == "api" and (not config["health_path"].startswith("/") or config["health_path"].startswith("//")):
         raise ValueError("health_path must be origin-relative")
+    return config
 
 
 def main():
@@ -31,6 +34,7 @@ def main():
     parser.add_argument("--project", choices=["api", "ui", "all"], default="all")
     args = parser.parse_args()
     projects = ["api", "ui"] if args.project == "all" else [args.project]
+    failed = False
     try:
         if args.mode == "product":
             for project in projects:
@@ -45,11 +49,12 @@ def main():
                 output = ROOT / "outputs" / project
                 output.mkdir(parents=True, exist_ok=True)
                 suite = "tests/framework" if args.mode == "verify" else "testcases"
-                subprocess.run([str(python), "-m", "pytest", suite, f"--junitxml={output / (args.mode + '.xml')}"], cwd=ROOT / project, check=True)
+                result = subprocess.run([str(python), "-m", "pytest", suite, f"--junitxml={output / (args.mode + '.xml')}"], cwd=ROOT / project)
+                failed |= result.returncode != 0
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    return 0
+    return int(failed)
 
 
 if __name__ == "__main__":
