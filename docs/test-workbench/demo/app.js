@@ -27,7 +27,43 @@ function reports(){return title('执行与报告','查看执行范围、记录�
 function settings(){return title('工具与设置','本地工作台、AI 与执行器的连接状态。')+`<div class="notice">这是独立静态 Demo。未检测本机依赖，未连接 AI、测试框架或公司系统。</div><div class="grid"><div class="card pad"><h2>本地工具</h2>${[['AI 能力','未连接 · 仅模拟生成'],['API / UI 执行器','未连接 · 仅模拟执行'],['端侧执行器','暂未提供'],['演示数据保存',storageOK?'当前浏览器 localStorage':'不可用，仅保留在内存']].map(([n,s])=>`<div class="list-item row"><span>${n}</span>${badge(s)}</div>`).join('')}</div><div class="card pad"><h2>演示工作区</h2><p class="subtitle" style="margin:15px 0">任务、用例和手工结果保存在当前浏览器。刷新页面不会清空；更换浏览器或访问地址不共享数据。</p><div class="actions">${btn('导出演示数据','backup','small')}${btn('重置演示数据','reset','small')}</div><p class="footer-note">请使用示例内容体验。</p></div></div>`}
 function render(){const names={home:'工作台',task:'测试任务',knowledge:'知识库',assets:'测试资产',reports:'测试报告',automation:'自动化执行',settings:'工具与设置'};$('#crumb').textContent='工作空间 / '+names[page]+(page==='task'?' / '+tabs[tab]:'');$$('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===(page==='task'?'home':page)));$('#content').innerHTML=({home,task:taskPage,knowledge,assets,reports,automation:()=>automationPage(),settings}[page])();if($('#search'))$('#search').oninput=e=>$('#docRows').innerHTML=docRows(e.target.value);$$('[data-check]').forEach(c=>c.onchange=()=>c.checked?selected.add(c.dataset.check):selected.delete(c.dataset.check))}
 function download(name,body,type='text/plain;charset=utf-8'){const u=URL.createObjectURL(new Blob([body],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-function newTask(regression=false){const source=data.tasks.find(t=>t.lifecycle?.location!=='trash'&&t.cases.some(c=>c.confirmed));if(regression&&!source){toast('尚无已确认用例可复用');return}modal(regression?'创建回归测试任务':'新建测试任务',`<div class="notice info">任务资料和设计成果保存在本地工作区。${regression?'从「'+esc(source.name)+'」复制已确认用例快照，修改互不影响。':'新任务需选择规格资料，用例从空白开始。'}</div><label>任务名称<input name="name" required maxlength="80" placeholder="例如：健康档案回归测试"></label><div class="form-grid"><label>目标版本<input name="version" required value="" maxlength="40"></label><label>需求单号<input name="requirementNo" maxlength="100" placeholder="请输入需求单号（选填）"></label></div>`,'创建任务',f=>{if(!String(f.get('name')).trim())return false;const base=blankTask();base.id='TASK-'+crypto.randomUUID();base.name=String(f.get('name')).trim();base.version=f.get('version');base.type=regression?'回归测试':'需求测试';base.requirementNo=String(f.get('requirementNo')||'').trim();base.cases=regression?structuredClone(source.cases.filter(c=>c.confirmed)):[];base.plan=regression?source.plan:'';base.answer=regression?source.answer:'';data.tasks.unshift(base);save();enterJourney(regression?'regression':'design',base.id);toast('测试任务已创建')})}
+function newTask(regression=false) {
+  const source=data.tasks.find(t=>t.lifecycle?.location!=='trash' && t.cases.some(c=>c.confirmed));
+  if(regression && !source) return toast('尚无已确认用例可复用');
+  const title=regression?'创建回归测试任务':'新建测试任务';
+  const body=`<label>任务名称（必填）<input name="name" required maxlength="80" placeholder="例如：健康档案回归测试" aria-describedby="taskNameHint"></label>
+    <small id="taskNameHint">下次可在工作台按这个名称查找并继续。</small>
+    <div class="form-grid"><label>目标版本（必填）<input name="version" required maxlength="40"></label>
+    <label>需求单号<input name="requirementNo" maxlength="100" placeholder="选填"></label></div>`
+    +(regression?`<p>复用「${esc(source.name)}」中已确认的用例。</p>`:'');
+  modal(title,body,'创建并进入任务',form=>{
+    const name=form.get('name').trim();
+    const version=form.get('version').trim();
+    for(const [field,value,message] of [['name',name,'请输入任务名称'],['version',version,'请输入目标版本']]){
+      if(!value){
+        const input=$('#modalForm').elements.namedItem(field);
+        input.setCustomValidity(message);
+        input.reportValidity();
+        return false;
+      }
+    }
+    const t=Object.assign(blankTask(),{id:'TASK-'+crypto.randomUUID(),name,version,
+      requirementNo:form.get('requirementNo').trim(),type:regression?'回归测试':'需求测试'});
+    if(regression){
+      t.cases=structuredClone(source.cases.filter(c=>c.confirmed));
+      t.plan=source.plan;
+      t.answer=source.answer;
+    }
+    data.tasks.unshift(t);
+    save();
+    enterJourney(regression?'regression':'design',t.id);
+    flushWorkspace().then(()=>toast('已保存任务「'+name+'」')).catch(()=>{/* 保存失败由工作区显示恢复入口。 */});
+  });
+  for(const input of $('#modalForm').querySelectorAll('input[required]')){
+    input.oninput=()=>input.setCustomValidity('');
+  }
+  $('#modalForm').elements.namedItem('name').focus();
+}
 document.addEventListener('click',e=>{const n=e.target.closest('[data-nav]');if(n){page=n.dataset.nav;render();return}const tb=e.target.closest('[data-tab]');if(tb){tab=tb.dataset.tab;render();return}const fo=e.target.closest('[data-folder]');if(fo){folder=fo.dataset.folder;render();return}const a=e.target.closest('[data-action]');if(a)act(a.dataset.action)});
 function baseAct(action){const [name,id]=action.split(':'),t=task();if(name==='new'||name==='regression')return newTask(name==='regression');if(name==='open')return openTask(id);if(name==='todo')return openTask(data.tasks[0].id,id);if(name==='report')return openTask(id,'summary');if(name==='toCases'){if($('#planText')){t.plan=$('#planText').value;save()}tab='cases';render();return}if(name==='savePlan'){t.plan=$('#planText').value;save();toast('测试方案已保存');return}if(name==='planSample'){$('#planText').value='';toast('已填入方案示例，可编辑后保存');return}
 if(name==='analyze')return modal('需求分析 · 示例结果','<div class="notice info">使用固定示例，不调用 AI。</div><h3>提取到 4 项需求</h3><p>字段创建、只读权限、删除与名称边界。</p><div class="source">风险：越权修改和刷新后数据丢失。<br>待确认：字段名称长度和超长处理。</div>','返回任务',()=>{});
