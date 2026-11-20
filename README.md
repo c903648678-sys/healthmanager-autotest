@@ -148,7 +148,7 @@ flowchart LR
 
 | 修改目标 | 从哪里读起 |
 | --- | --- |
-| 页面和 HTTP 路由 | [前端目录](docs/test-workbench/demo/) 是实际运行的界面；[server.py](workbench/server.py) 提供静态资源和工作台接口。 |
+| 页面和 HTTP 路由 | [前端目录](docs/test-workbench/web/) 是实际运行的界面；[server.py](workbench/server.py) 提供静态资源和工作台接口。 |
 | 需求分析、方案与用例审阅 | [jobs.py](workbench/jobs.py)、[contracts.py](workbench/contracts.py)、[providers.py](workbench/providers.py) 以及[共享专家定义](experts/)。 |
 | 扫描、脚本生成与套件执行 | [扫描器](workbench/ui_inventory.py)、[代码生成器](workbench/codegen.py)、[资产与套件](workbench/automation.py)、[健康管理执行器](workbench/health_execution.py)。 |
 | 添加产品用例 | 参考 [API 健康检查](api/testcases/health/) 或 [UI 首页冒烟](ui/testcases/home/)，在同一目录维护 `case_spec.json` 和 `test_main.py`。 |

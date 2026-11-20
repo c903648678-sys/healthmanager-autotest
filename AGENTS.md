@@ -14,7 +14,7 @@
 
 | 工作内容 | 源码和验证入口 |
 | --- | --- |
-| 启动、HTTP 接口、工作台网页 | workbench/server.py 加载 docs/test-workbench/demo/；这个目录是正在使用的前端。 |
+| 启动、HTTP 接口、工作台网页 | workbench/server.py 加载 docs/test-workbench/web/；这个目录是正在使用的前端。 |
 | 任务、AI 设计和审阅 | workbench/workspace.py、jobs.py、contracts.py、providers.py 和 experts/。手工批次与报告在 workbench/execution.py。 |
 | 产品资产 | api/testcases/health/ 与 ui/testcases/home/ 提供 case_spec.json 和 test_main.py 示例。workbench/ui_inventory.py 扫描两个工程；脚本准入、绑定、套件和版本管理在 automation.py。 |
 | 自动化执行 | server.py 注入 HealthExecutor；改健康管理执行逻辑从 workbench/health_execution.py 开始。ui_execution.py 提供共享结果归并及迁移保留的 UI 实现。 |

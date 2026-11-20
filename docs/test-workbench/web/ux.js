@@ -36,7 +36,6 @@ act=function(action){const [name,id,step]=action.split(':');if(name==='uxClearSe
 const uxPreviousRender=render;
 render=function(){const focused=document.activeElement;const focusAction=focused?.dataset?.action;uxPreviousRender();
  const sync=$('#workspaceSync');if(sync){sync.parentElement.classList.add('ux-save-status');sync.parentElement.setAttribute('aria-label','工作区保存状态');}
- const demo=$('header .demo');if(demo)demo.textContent='设计支持真实模型 · 自动化执行为演示';
  // A generated result makes review the primary task; regeneration remains available.
  for(const [action,draft,job] of [['planGenerate',task().planner?.draft,task().planner?.job],['caseGenerate',task().caseDesigner?.draft,task().caseDesigner?.job]]){
   const b=$(`[data-action="${action}"]`);if(b&&draft&&job?.status==='succeeded'&&!(action==='planGenerate'?planStale(task()):caseStale(task())))b.classList.remove('primary');

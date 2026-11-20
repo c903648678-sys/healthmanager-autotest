@@ -35,7 +35,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().log_message(format, *args)
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=str(ROOT / "docs/test-workbench/demo"), **kwargs)
+        super().__init__(*args, directory=str(ROOT / "docs/test-workbench/web"), **kwargs)
 
     def _local(self):
         allowed = {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}

@@ -70,7 +70,7 @@
 
 .suite-selection{flex-wrap:wrap}.suite-picker .suite-select-all{display:flex;align-items:center;gap:7px;margin:0;font-size:12px}.suite-select-all input{margin:0}
 
-.account-env-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:16px;padding-top:12px;font-size:12px}.account-demo-list article{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.account-run-panel{border:1px solid var(--line);background:#f8faff;border-radius:8px;padding:12px;margin-bottom:14px}.account-run-panel label{margin-bottom:6px}
+.account-env-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);margin-top:16px;padding-top:12px;font-size:12px}.sample-account-list article{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.account-run-panel{border:1px solid var(--line);background:#f8faff;border-radius:8px;padding:12px;margin-bottom:14px}.account-run-panel label{margin-bottom:6px}
 
 .suite-name-help{margin:-3px 0 14px;padding:9px 12px;background:#f7f9ff;border-radius:7px;font-size:12px}.suite-name-help .actions{gap:8px}.suite-name-help span{overflow-wrap:anywhere;color:#5368a3}
 

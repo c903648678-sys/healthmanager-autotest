@@ -3,9 +3,9 @@ tabs.sources='选择规格方案';
 journeys.design.steps=['sources','requirements','plan','cases'];
 let sourceFolder='全部特性',directoryOpen=false,directoryPicked=new Set(),readingFiles=false;
 const initialCatalog=()=>[
- {id:'dir-fields',name:'requirements.md',feature:'字段管理',path:'ai_table/field_management/requirements.md',revision:1,text:'# 字段管理需求规格（演示）\n\n## 创建字段\n编辑者可以新增文本字段。保存后刷新，字段名称和类型保持一致。\n\n## 权限\n只读用户不得新增或删除字段。\n\n## 删除\n删除目标字段不影响其他字段。\n\n## 待确认\n字段名称长度上限尚未确认。',change:'未变化'},
- {id:'dir-design',name:'design.md',feature:'字段管理',path:'ai_table/field_management/design.md',revision:1,text:'# 字段管理设计说明（演示）\n\n测试使用独立表和唯一名称。验证保存后刷新持久化，并记录测试数据清理。',change:'未变化'},
- {id:'dir-views',name:'requirements.md',feature:'视图管理',path:'ai_table/view_type/requirements.md',revision:1,text:'# 视图管理规格（演示）\n\n本文件用于体验目录选择，Demo 不会基于此内容真实生成用例。',change:'未变化'}
+ {id:'dir-fields',name:'requirements.md',feature:'字段管理',path:'ai_table/field_management/requirements.md',revision:1,text:'# 字段管理需求规格（示例）\n\n## 创建字段\n编辑者可以新增文本字段。保存后刷新，字段名称和类型保持一致。\n\n## 权限\n只读用户不得新增或删除字段。\n\n## 删除\n删除目标字段不影响其他字段。\n\n## 待确认\n字段名称长度上限尚未确认。',change:'未变化'},
+ {id:'dir-design',name:'design.md',feature:'字段管理',path:'ai_table/field_management/design.md',revision:1,text:'# 字段管理设计说明（示例）\n\n测试使用独立表和唯一名称。验证保存后刷新持久化，并记录测试数据清理。',change:'未变化'},
+ {id:'dir-views',name:'requirements.md',feature:'视图管理',path:'ai_table/view_type/requirements.md',revision:1,text:'# 视图管理规格（示例）\n\n此文件用于说明目录结构。',change:'未变化'}
 ];
 let specCatalog=[];
 const chosenSources=()=>task().sources||[];
@@ -122,7 +122,7 @@ act=function(action){
   if(persistSourceChange(()=>{t.activeStep='requirements';t.sourcesConfirmedKey=sourceKey(t);t.sourcesConfirmedAt=new Date().toISOString();if(previous&&previous!==t.sourcesConfirmedKey){t.sourcesReviewNotice=true;t.cases.forEach(c=>{c.confirmed=false;c.reviewNeeded=true;if(c.script!=='未实现')c.script='需重新验证'})}})){tab='requirements';render()}return;
  }
  if(name==='referenceSources'){tab='sources';journey='design';render();return}
- if(name==='analyze'&&(t.sources||[]).length)return modal('需求理解 · 本次参考资料',`<div class="notice info">已关联真实文件内容，但 Demo 尚未接入 AI；不会把固定字段示例冒充这些资料的分析结果。</div><ul>${t.sources.map(s=>`<li>${esc(s.name)} · ${esc(s.origin)} · 修订 ${s.revision}</li>`).join('')}</ul><p>可返回预览原文、记录业务疑问，或继续体验固定测试方案与用例示例。</p>`,'了解了',()=>{});
+ if(name==='analyze'&&(t.sources||[]).length)return modal('需求理解 · 本次参考资料',`<div class="notice info">已关联参考资料。请使用需求分析入口开始分析。</div><ul>${t.sources.map(s=>`<li>${esc(s.name)} · ${esc(s.origin)} · 修订 ${s.revision}</li>`).join('')}</ul><p>可返回预览原文、记录业务疑问，或继续体验固定测试方案与用例示例。</p>`,'了解了',()=>{});
  return sourceAct(action);
 };
 const priorRequirements=requirements;
