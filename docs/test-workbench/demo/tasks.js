@@ -56,66 +56,62 @@ chooseJourney=function(key){
   flushWorkspace().catch(()=>{/* The workspace shows its existing recovery controls. */});
 };
 function openNewDesignTask(){
-  const findRecord = identifier => data.tasks.find(t =>
-    (t.requirementNo||'').trim().toLowerCase()===identifier.trim().toLowerCase() && taskLC(t).location!=='trash');
+  const findRecord = identifier => data.tasks.find(task =>
+    (task.requirementNo||'').trim().toLowerCase()===identifier.trim().toLowerCase() && taskLC(task).location!=='trash');
   modal('新建测试设计任务',`
-    <label>任务名称（必填）<input name="name" required maxlength="80" placeholder="例如 健康档案保存测试"></label>
-    <label>FE/BUG 编号（必填）<input name="requirementNo" required maxlength="100" placeholder="例如 FE-12345 或 BUG-12345"></label>
-    <label>描述（必填）<textarea name="description" required maxlength="5000" rows="6"
-      placeholder="说明要测试的功能、期望行为及已知限制"></textarea></label>
-    <p class="subtitle">输入已有的 FE/BUG 编号可继续原任务。</p>
-  `,'进入需求设计',form=>{
-    const taskName=form.get('name').trim();
+    <div class="design-task-fields">
+      <label>FE/BUG 编号（必填）
+        <input name="requirementNo" required maxlength="100" placeholder="例如 FE-12345 或 BUG-12345"
+          aria-describedby="designTaskMatch">
+      </label>
+      <label id="designTaskName">任务名称（必填）
+        <input name="name" required maxlength="80" placeholder="例如 健康档案保存测试">
+      </label>
+      <p id="designTaskMatch" class="subtitle" role="status"></p>
+    </div>
+  `,'创建并进入设计',form=>{
     const identifier=form.get('requirementNo').trim();
-    const description=form.get('description').trim();
     const fields=$('#modalForm').elements;
-    for(const [name,value,message] of [['name',taskName,'请输入任务名称'],['requirementNo',identifier,'请输入 FE/BUG 编号'],['description',description,'请输入描述']]){
-      if(!value){
-        fields.namedItem(name).setCustomValidity(message);
-        fields.namedItem(name).reportValidity();
-        return false;
-      }
+    if(!identifier){
+      fields.requirementNo.setCustomValidity('请输入 FE/BUG 编号');
+      fields.requirementNo.reportValidity();
+      return false;
     }
 
     let record=findRecord(identifier);
-    if(record && !taskEditable(record)) return enterJourney('design',record.id);
-    if(record?.description && record.description.trim()!==description){
-      fields.description.setCustomValidity('此编号已有描述。请沿用原描述进入，再在需求变更中更新。');
-      fields.description.reportValidity();
-      return false;
-    }
     if(!record){
-      record={...blankTask(),id:'TASK-'+crypto.randomUUID(),name:taskName,requirementNo:identifier,description};
+      const taskName=form.get('name')?.trim();
+      if(!taskName){
+        const name=fields.namedItem('name');
+        name.setCustomValidity('请输入任务名称');
+        name.reportValidity();
+        return false;
+      }
+      record={...blankTask(),id:'TASK-'+crypto.randomUUID(),name:taskName,requirementNo:identifier};
       data.tasks.unshift(record);
     }
-    record.description=description;
-    if(!(record.sources||[]).length){
-      const size=new TextEncoder().encode(description).length;
-      record.sources=[{id:'src-'+crypto.randomUUID(),name:'任务描述',origin:'需求登记',path:'',
-        revision:1,status:'可读取',text:description,size,sizeLabel:(size/1024).toFixed(1)+' KB'}];
-      record.sourcesConfirmedKey=sourceKey(record);
-      record.sourcesConfirmedAt=new Date().toISOString();
-    }
-    const step=record.activeJourney==='design'?record.activeStep:'requirements';
-    enterJourney('design',record.id,step||'requirements');
+    const step=record.activeJourney==='design'?record.activeStep:'sources';
+    enterJourney('design',record.id,step||'sources');
     flushWorkspace().catch(()=>{/* 保存失败由工作区显示恢复入口。 */});
   });
   const form=$('#modalForm');
   const name=form.elements.namedItem('name');
   const identifier=form.elements.requirementNo;
-  const description=form.elements.description;
   name.oninput=()=>name.setCustomValidity('');
   identifier.oninput=()=>{
     identifier.setCustomValidity('');
-    description.setCustomValidity('');
+    const record=identifier.value.trim()?findRecord(identifier.value):null;
+    name.disabled=Boolean(record);
+    $('#designTaskName').hidden=Boolean(record);
+    const state=record ? taskLC(record) : null;
+    const action=record ? (taskEditable(record)?'继续已有任务':'查看任务') : '新建测试设计任务';
+    $('#modalTitle').textContent=action;
+    $('#modalSubmit').textContent=record?action:'创建并进入设计';
+    $('#designTaskMatch').textContent=record
+      ? `${record.name} · ${state.location==='archive'?'已归档':taskStatusNames[state.status]}`
+      : '';
   };
-  identifier.onchange=()=>{
-    const record=findRecord(identifier.value);
-    if(record && !description.value.trim()) description.value=record.description||'';
-    if(record && !name.value.trim()) name.value=record.name;
-  };
-  description.oninput=()=>description.setCustomValidity('');
-  name.focus();
+  identifier.focus();
 }
 async function applyTaskAction(t,action,fields){if(taskInFlight(t))return toast('仍有生成或模拟执行进行中，请取消并等待停止后再操作');taskActionBusy=true;$('#content').inert=true;try{await flushWorkspace();const response=await workspaceRequest('/api/tasks/'+encodeURIComponent(t.id)+'/'+action,{revision:workspaceRevision,...fields});data=response.data;workspaceRevision=response.revision;workspaceStamp=JSON.stringify(data);workspaceDirty=false;originalLocalSave();if(action==='purge'){page='home';taskFilter='trash';}if(action==='delete'||action==='archive'){page='home';taskFilter=action==='delete'?'trash':'archive';}if(action==='restore')taskFilter=taskLC(data.tasks.find(x=>x.id===t.id)).location==='archive'?'archive':'all';if(action==='unarchive')taskFilter='all';render();toast(taskActionNames[action]+'成功');}catch(e){if(e.message.includes('工作区已被其他页面')){workspaceError=e.message;render();}toast(e.message)}finally{taskActionBusy=false;$('#content').inert=false;}}
 function manageTask(action,id){const t=data.tasks.find(t=>t.id===id);if(!t||!taskActions(t).includes(action))return toast('当前状态不支持此操作');if(taskInFlight(t))return toast('此任务仍在生成或执行，请先取消并等待停止');

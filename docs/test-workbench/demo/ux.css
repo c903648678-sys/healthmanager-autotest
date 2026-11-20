@@ -103,3 +103,11 @@
 .task-sections button {border:0;background:transparent;color:#475569;padding:.5rem .85rem}
 .task-sections button[aria-current="page"] {background:#e8efff;color:#1747a5;font-weight:650}
 .task-name-link {font-weight:650;text-align:left;overflow-wrap:anywhere}
+
+/* Keep the design dialog within the viewport with actions outside the scroll area. */
+.modal-overlay:has(.design-task-fields) {grid-template-columns:minmax(0,1fr)}
+.modal:has(.design-task-fields) {display:flex;flex-direction:column;width:min(100%,660px);max-height:min(90dvh,100%);overflow:hidden}
+.modal:has(.design-task-fields) > form {display:flex;flex-direction:column;min-height:0}
+.modal:has(.design-task-fields) .modal-body {overflow:auto;min-height:0}
+.modal:has(.design-task-fields) :is(.card-head,.modal-foot) {flex-shrink:0}
+.design-task-fields [hidden], #designTaskMatch:empty {display:none}
