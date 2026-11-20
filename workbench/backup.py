@@ -15,7 +15,7 @@ def backup(folder):
             if not path.is_file() or not path.resolve().is_relative_to(root):
                 continue
             key=path.relative_to(root).as_posix()
-            if key not in {'workspace.json','workspace.previous.json','ui-assets-cache.json'} and key.split('/')[0] not in {'jobs','knowledge','execution','automation'}:
+            if key not in {'workspace.json','workspace.previous.json','ui-assets-cache.json','source-links.json'} and key.split('/')[0] not in {'jobs','knowledge','execution','automation'}:
                 continue
             if key.startswith('knowledge/suggestions/'):
                 continue

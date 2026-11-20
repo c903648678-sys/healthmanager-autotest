@@ -229,6 +229,8 @@ class Workspace:
                         raise ValueError('任务的需求或方案存在未确认修改')
                     original = json.loads((self.jobs.folder / analysis_job['id'] / 'input.json').read_text(encoding='utf-8'))
                     sources = [{k:s.get(k) for k in ('id','name','text')} for s in task.get('sources', [])]
+                    if any('localRef' in source for source in task.get('sources', [])):
+                        sources = self.resolve_sources(task['sources'])
                     if sources != original['sources'] or analyst.get('instructions','') != original['instructions']:
                         raise ValueError('规格或分析范围已变化，请先重新确认设计')
                     selected = analyst.get('historyRefs', [])

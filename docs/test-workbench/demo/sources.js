@@ -12,50 +12,88 @@ const chosenSources=()=>task().sources||[];
 const sourceKey=t=>JSON.stringify((t.sources||[]).map(s=>[s.id,s.revision,s.status]));
 const readySources=t=>(t.sources||[]).length>0&&(t.sources||[]).every(s=>s.status==='可读取');
 const confirmedSources=t=>readySources(t)&&t.sourcesConfirmedKey===sourceKey(t);
-function persistSourceChange(fn){const before=JSON.stringify(data);fn();try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch{data=JSON.parse(before);toast('保存失败：浏览器存储空间不足，资料未添加。请移除不需要的文件后重试。');return false}}
+function persistSourceChange(fn){const before=JSON.stringify(data);fn();try{localStorage.setItem(KEY,JSON.stringify(data));save();return true}catch{data=JSON.parse(before);toast('保存失败：浏览器存储空间不足，资料未添加。请移除不需要的文件后重试。');return false}}
 function sourceStatus(s){const current=specCatalog.find(d=>d.id===s.catalogId);if(current?.missing)return '源文件不可读取';return s.origin==='特性目录'&&current&&current.revision!==s.revision?'源文件已更新':s.status}
 function sources(){
  const t=task(),list=chosenSources();
- return `<div class="source-options"><div class="card pad"><span class="scenario-icon">＋</span><h2>选择本地规格方案</h2><p class="subtitle">资料还在桌面、下载目录或其他位置。</p><p class="source-note">选择时在浏览器读取 Markdown / TXT，不移动原文件。</p><button class="primary" data-action="chooseLocal" ${readingFiles?'disabled':''}>${readingFiles?'正在读取…':'选择文件'}</button><input type="file" id="specFiles" accept=".md,.markdown,.txt" multiple hidden></div><div class="card pad"><span class="scenario-icon">▱</span><h2>从特性目录选择</h2><p class="subtitle">资料已经整理在本地特性目录下。</p><p class="source-note">读取本机 knowledge/product，刷新发现新增和修改；已选快照不会自动替换。</p>${btn('浏览特性目录','browseDirectory','')}</div></div>`+
+ return `<div class="source-options"><div class="card pad"><span class="scenario-icon">＋</span><h2>选择本地规格方案</h2><p class="subtitle">支持 Word、Excel、PowerPoint、PDF、Markdown 和 TXT。</p>
+ <p class="source-note">只登记本机位置，预览或分析时读取原文件。</p><div class="actions">
+ <button type="button" class="primary" data-action="chooseLocal" ${readingFiles?'disabled':''}>选择文件</button>
+ <button type="button" data-action="chooseLocalFolder" ${readingFiles?'disabled':''}>选择文件夹</button></div></div><div class="card pad"><span class="scenario-icon">▱</span><h2>从特性目录选择</h2><p class="subtitle">资料已经整理在本地特性目录下。</p><p class="source-note">读取本机 knowledge/product，刷新发现新增和修改；已选快照不会自动替换。</p>${btn('浏览特性目录','browseDirectory','')}</div></div>`+
  (directoryOpen?directoryPanel():'')+
- `<div class="card"><div class="card-head"><div><h2>已选择的方案 <span class="muted">${list.length}</span></h2><p class="subtitle">同名不同内容保留为不同条目；确认后固定本任务使用的资料版本。</p></div>${badge(confirmedSources(t)?'方案已确认':'待确认方案')}</div><div class="table-wrap"><table><thead><tr><th>文件名称 / 来源位置</th><th>来源</th><th>状态</th><th>操作</th></tr></thead><tbody>${list.map(s=>`<tr><td class="case-title">${esc(s.name)}<small>${esc(s.path||'浏览器选择的本地文件')} · ${esc(s.sizeLabel||'目录示例')} · 修订 ${esc(s.revision)}</small></td><td>${esc(s.origin)}</td><td>${badge(sourceStatus(s))}${s.error?`<small>${esc(s.error)}</small>`:''}</td><td><div class="actions">${s.status==='可读取'?btn('预览','previewSource:'+s.id,'small'):''}${sourceStatus(s)==='源文件已更新'?btn('查看更新','updateSource:'+s.id,'small'):''}${btn('移除','removeSource:'+s.id,'link small')}</div></td></tr>`).join('')||'<tr><td colspan="4" class="empty">还没有选择方案。可以从上方任意一个入口添加，也可以混合选择。</td></tr>'}</tbody></table></div><div class="pad row"><span class="subtitle">最多 10 份，每份 200 KB，总计 1 MB。读取失败的条目请移除或重新选择。</span><button class="primary" data-action="confirmSources" ${!readySources(t)||readingFiles?'disabled':''}>确认方案，开始需求理解</button></div></div>`;
+ `<div class="card"><div class="card-head"><div><h2>已选择的方案 <span class="muted">${list.length}</span></h2><p class="subtitle">本机引用保留原文件位置。文件有变动时，重新选择后再确认。</p></div>${badge(confirmedSources(t)?'方案已确认':'待确认方案')}</div><div class="table-wrap"><table><thead><tr><th>文件名称 / 来源位置</th><th>来源</th><th>状态</th><th>操作</th></tr></thead><tbody>${list.map(s=>`<tr><td class="case-title">${esc(s.name)}<small>${esc(s.path||'本地文件')} · ${esc(s.sizeLabel||'目录示例')} · 修订 ${esc(s.revision)}</small></td><td>${esc(s.origin)}</td><td>${badge(s.localRef?'本机引用':sourceStatus(s))}${s.error?`<small>${esc(s.error)}</small>`:''}</td><td><div class="actions">${s.status==='可读取'?btn('预览','previewSource:'+s.id,'small'):''}${sourceStatus(s)==='源文件已更新'?btn('查看更新','updateSource:'+s.id,'small'):''}${btn('移除','removeSource:'+s.id,'link small')}</div></td></tr>`).join('')||'<tr><td colspan="4" class="empty">还没有选择方案。可以从上方任意一个入口添加，也可以混合选择。</td></tr>'}</tbody></table></div><div class="pad row"><span class="subtitle">最多 10 份。分析时，每份提取文本最多 200 KB，合计最多 1 MB。</span><button class="primary" data-action="confirmSources" ${!readySources(t)||readingFiles?'disabled':''}>确认方案，开始需求理解</button></div></div>`;
 }
 function directoryPanel(){return `<div class="card"><div class="card-head"><div><h2>特性目录 <span class="badge amber">模拟目录</span></h2><p class="subtitle">路径示意：knowledge/product · 未扫描真实磁盘</p></div><div class="actions">${btn('刷新目录（模拟）','refreshDirectory','small')}${btn('收起','closeDirectory','link')}</div></div><div class="knowledge pad"><div class="tree">${['全部特性','字段管理','视图管理','导入导出'].map(f=>`<button class="${sourceFolder===f?'active':''}" data-action="sourceFolder:${f}">▱ ${f}</button>`).join('')}</div><div><div class="table-wrap"><table><thead><tr><th>选择</th><th>文件</th><th>变更</th><th></th></tr></thead><tbody>${specCatalog.filter(d=>sourceFolder==='全部特性'||d.feature===sourceFolder).map(d=>`<tr><td><input class="check" type="checkbox" data-source-pick="${d.id}" aria-label="选择 ${d.path}" ${directoryPicked.has(d.id)?'checked':''}></td><td>${esc(d.name)}<small>${esc(d.path)} · 修订 ${d.revision}</small></td><td>${badge(d.change)}</td><td>${btn('预览','previewDirectory:'+d.id,'small')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">此特性暂无示例资料</td></tr>'}</tbody></table></div><div class="row" style="margin-top:18px"><span class="subtitle">${data.specRefreshAt?'最近刷新：'+esc(data.specRefreshAt):'尚未刷新。首次模拟刷新展示 1 份新增与 1 份更新。'}</span>${btn('加入已选方案','addDirectory','primary small')}</div></div></div></div>`}
-function previewSource(s){modal('方案预览 · '+s.name,`<div class="source">来源：${esc(s.origin||'本地特性目录')} · ${esc(s.path||'本地文件')}<br>本次快照修订：${esc(s.revision)}</div><pre class="spec-preview">${esc(s.text)}</pre>`,'关闭预览',()=>{})}
-async function readLocalFiles(files){
- const owner=task(),ownerId=owner.id;readingFiles=true;
- const queue=[...files];const additions=[];const existing=owner.sources||[];
- if(existing.length+queue.length>10){readingFiles=false;toast('每个任务最多选择 10 份方案');return}
- render();
- for(const file of queue){
-  const item={id:'src-'+crypto.randomUUID(),name:file.name,origin:'本地选择',path:'',revision:1,size:file.size,sizeLabel:(file.size/1024).toFixed(1)+' KB',modifiedAt:new Date(file.lastModified).toISOString(),status:'读取失败',text:''};
+async function previewSource(source){
+  if(!source)return;
+  const owner=taskId;
   try{
-   if(!/\.(md|markdown|txt)$/i.test(file.name))throw Error('暂不支持此格式，请提供 Markdown 或 TXT');
-   if(file.size>200*1024)throw Error('文件超过 200 KB，请精简或拆分');
-   const raw=await file.arrayBuffer();const decoded=new TextDecoder('utf-8',{fatal:true}).decode(raw);
-   if(!decoded.trim())throw Error('文件内容为空');
-   if(decoded.includes('\u0000'))throw Error('文件不是可读取文本');
-   const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',raw))].map(x=>x.toString(16).padStart(2,'0')).join('');
-   if([...existing,...additions].some(s=>s.hash===hash&&s.name===file.name)){toast('已忽略相同名称和内容的重复文件');continue}
-   item.hash=hash;item.text=decoded;item.status='可读取';
-  }catch(err){item.error=err.message}
-  additions.push(item);
- }
- readingFiles=false;
- const target=data.tasks.find(t=>t.id===ownerId);if(!target)return;
- const total=[...(target.sources||[]),...additions].reduce((n,s)=>n+(s.status==='可读取'?s.size||0:0),0);
- if(total>1024*1024){toast('已选资料总计超过 1 MB，本次未添加');render();return}
- if(!additions.length){toast('所选文件已存在，未重复添加');render();return}
- if(persistSourceChange(()=>{target.sources=[...(target.sources||[]),...additions]})){const failed=additions.filter(s=>s.status!=='可读取').length;toast(failed?'已添加资料，其中 '+failed+' 份读取失败，请查看原因':'已读取 '+additions.length+' 份本地资料；请预览后确认')}
- render();
+    const document=source.localRef
+      ? await workspaceRequest('/api/source-links/preview',{localRef:source.localRef},60000)
+      : source;
+    if(taskId!==owner)return;
+    modal('方案预览 · '+source.name,`<div class="source">${esc(source.path||source.origin||'规格资料')}</div>
+      <pre class="spec-preview">${esc(document.text)}</pre>`,'关闭预览',()=>{});
+  }catch(error){toast(error.message);}
 }
+
+function addLocalReferences(owner, documents){
+  const existing=owner.sources||[];
+  const refs=new Set(existing.map(source=>source.localRef));
+  const additions=documents.filter(document=>!refs.has(document.localRef));
+  if(existing.length+additions.length>10){
+    toast('每个任务最多引用 10 份资料，请减少选择');
+    return false;
+  }
+  if(!additions.length){toast('所选文件已引用');return false;}
+  owner.sources=[...existing,...additions.map(document=>({...document,
+    id:'src-'+crypto.randomUUID(),origin:'本机引用',revision:1,status:'可读取',
+    sizeLabel:(document.size/1024).toFixed(1)+' KB'}))];
+  save();
+  render();
+  toast('已登记 '+additions.length+' 份本机引用');
+  return true;
+}
+
+async function chooseLocalReferences(mode){
+  if(readingFiles)return;
+  const owner=task();
+  readingFiles=true;
+  render();
+  try{
+    const response=await workspaceRequest('/api/source-links/pick',{mode},250000);
+    if(taskId!==owner.id || page!=='task' || tab!=='sources')return;
+    const files=response.documents;
+    if(!files.length)return;
+    if(mode==='files' && files.length+(owner.sources||[]).length<=10){
+      addLocalReferences(owner,files);
+      return;
+    }
+    const candidates=files.filter(file=>!(owner.sources||[]).some(source=>source.localRef===file.localRef));
+    if(!candidates.length){toast('文件夹中的文件已引用');return;}
+    modal('选择要引用的规格文件',`<p>勾选本任务需要的文件，最多 10 份。</p>
+      <div class="spec-preview">${candidates.map(file=>`<label class="inline-check">
+        <input class="check" type="checkbox" name="sourceRef" value="${esc(file.localRef)}">
+        <span>${esc(file.name)}<small>${esc(file.path)}</small></span>
+      </label>`).join('')}</div>`,'登记引用',form=>{
+      const selected=new Set(form.getAll('sourceRef'));
+      if(!selected.size){toast('请至少勾选一份文件');return false;}
+      return addLocalReferences(owner,candidates.filter(file=>selected.has(file.localRef)));
+    });
+  }catch(error){toast(error.message);}
+  finally{readingFiles=false;render();}
+}
+
+const sourcePayload=source=>({
+  id:source.id,name:source.name,...(source.localRef?{localRef:source.localRef}:{text:source.text})
+});
 const sourceRender=render;
-render=function(){sourceRender();if($('#specFiles'))$('#specFiles').onchange=e=>readLocalFiles(e.target.files);$$('[data-source-pick]').forEach(el=>el.onchange=()=>el.checked?directoryPicked.add(el.dataset.sourcePick):directoryPicked.delete(el.dataset.sourcePick));if(page==='task'&&journey==='design'&&tab==='sources'){const next=$('[data-action="step:requirements"]');if(next)next.disabled=!readySources(task())||readingFiles}};
+render=function(){sourceRender();$$('[data-source-pick]').forEach(el=>el.onchange=()=>el.checked?directoryPicked.add(el.dataset.sourcePick):directoryPicked.delete(el.dataset.sourcePick));if(page==='task'&&journey==='design'&&tab==='sources'){const next=$('[data-action="step:requirements"]');if(next)next.disabled=!readySources(task())||readingFiles}};
 const sourceAct=act;
 act=function(action){
  const [name,id]=action.split(':'),t=task();
  if(page==='task'&&journey==='design'&&!confirmedSources(t)&&((name==='step'&&id!=='sources'&&!(id==='requirements'&&tab==='sources'))||name==='toCases'||name==='generate')){toast('请先选择并确认规格方案');return}
- if(name==='chooseLocal'){$('#specFiles').click();return}
+ if(name==='chooseLocal'||name==='chooseLocalFolder')return chooseLocalReferences(name==='chooseLocal'?'files':'folder');
  if(name==='browseDirectory'){directoryOpen=true;render();return}
  if(name==='closeDirectory'){directoryOpen=false;render();return}
  if(name==='sourceFolder'){sourceFolder=id;render();return}
@@ -66,7 +104,7 @@ act=function(action){
  if(name==='previewSource')return previewSource(chosenSources().find(s=>s.id===id));
  if(name==='addDirectory'){
   const picked=specCatalog.filter(d=>!d.missing&&d.status!=='已失效'&&directoryPicked.has(d.id)&&!chosenSources().some(s=>s.catalogId===d.id));if(!picked.length){toast('请勾选未添加的方案；已添加方案通过“查看更新”更新');return}
-  if([...chosenSources(),...picked].reduce((n,s)=>n+(s.size||0),0)>1024*1024){toast('已选资料超过 1 MB');return}
+  if([...chosenSources(),...picked].reduce((n,s)=>n+(s.localRef?0:s.size||0),0)>1024*1024){toast('已选资料超过 1 MB');return}
   if(chosenSources().length+picked.length>10){toast('每个任务最多选择 10 份方案');return}
   persistSourceChange(()=>{t.sources=[...chosenSources(),...picked.map(d=>({...structuredClone({...d,history:undefined}),id:'src-'+crypto.randomUUID(),catalogId:d.id,origin:'特性目录',status:'可读取',size:new TextEncoder().encode(d.text).length}))]});render();return;
  }
@@ -75,13 +113,13 @@ act=function(action){
  }
  if(name==='updateSource'){
   const old=chosenSources().find(s=>s.id===id),fresh=specCatalog.find(d=>d.id===old.catalogId);
-  if(chosenSources().reduce((n,s)=>n+(s.size||0),0)-(old.size||0)+fresh.size>1024*1024){toast('更新后超过 1 MB，请先精简已选资料');return}
+  if(chosenSources().reduce((n,s)=>n+(s.localRef?0:s.size||0),0)-(old.size||0)+fresh.size>1024*1024){toast('更新后超过 1 MB，请先精简已选资料');return}
   return modal('更新任务资料快照',`<p>修订 ${old.revision} → ${fresh.revision}。接受后需要重新确认方案。</p><div class="change-diff"><div><small>当前任务版本</small><pre class="spec-preview">${esc(old.text)}</pre></div><div><small>目录新版本</small><pre class="spec-preview">${esc(fresh.text)}</pre></div></div>`,'接受新版本',()=>{persistSourceChange(()=>{(t.sourceHistory||=[]).push(structuredClone(old));Object.assign(old,{text:fresh.text,revision:fresh.revision,hash:fresh.hash,path:fresh.path,sizeLabel:fresh.sizeLabel,size:new TextEncoder().encode(fresh.text).length});});render()});
  }
  if(name==='confirmSources'||(name==='step'&&id==='requirements'&&tab==='sources')){
   if(!readySources(t)||readingFiles){toast('请至少选择一份可读取方案，并移除读取失败的条目');return}
   const previous=t.sourcesConfirmedKey;
-  if(persistSourceChange(()=>{t.sourcesConfirmedKey=sourceKey(t);t.sourcesConfirmedAt=new Date().toISOString();if(previous&&previous!==t.sourcesConfirmedKey){t.sourcesReviewNotice=true;t.cases.forEach(c=>{c.confirmed=false;c.reviewNeeded=true;if(c.script!=='未实现')c.script='需重新验证'})}})){tab='requirements';render()}return;
+  if(persistSourceChange(()=>{t.activeStep='requirements';t.sourcesConfirmedKey=sourceKey(t);t.sourcesConfirmedAt=new Date().toISOString();if(previous&&previous!==t.sourcesConfirmedKey){t.sourcesReviewNotice=true;t.cases.forEach(c=>{c.confirmed=false;c.reviewNeeded=true;if(c.script!=='未实现')c.script='需重新验证'})}})){tab='requirements';render()}return;
  }
  if(name==='referenceSources'){tab='sources';journey='design';render();return}
  if(name==='analyze'&&(t.sources||[]).length)return modal('需求理解 · 本次参考资料',`<div class="notice info">已关联真实文件内容，但 Demo 尚未接入 AI；不会把固定字段示例冒充这些资料的分析结果。</div><ul>${t.sources.map(s=>`<li>${esc(s.name)} · ${esc(s.origin)} · 修订 ${s.revision}</li>`).join('')}</ul><p>可返回预览原文、记录业务疑问，或继续体验固定测试方案与用例示例。</p>`,'了解了',()=>{});

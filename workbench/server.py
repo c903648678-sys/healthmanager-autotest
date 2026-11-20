@@ -11,6 +11,7 @@ from .contracts import ROOT
 from .jobs import JobStore
 from .providers import executable
 from .workspace import Workspace, Conflict
+from .local_sources import LocalSources
 from .knowledge import Knowledge
 from .execution import Execution
 from .case_import import parse_csv
@@ -207,7 +208,13 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.reply(200, self.server.workspace.save(raw))
             if len(route) == 5 and route[:3] == ['', 'api', 'tasks']:
                 return self.reply(200, self.server.workspace.transition(route[3], route[4], raw))
+            if route == ['', 'api', 'source-links', 'pick']:
+                return self.reply(200, {'documents': self.server.local_sources.pick(raw.get('mode'))})
+            if route == ['', 'api', 'source-links', 'preview']:
+                return self.reply(200, self.server.local_sources.read(raw.get('localRef')))
             if route == ["", "api", "jobs"]:
+                if isinstance(raw.get('sources'), list) and any(isinstance(item, dict) and 'localRef' in item for item in raw['sources']):
+                    raw['sources'] = self.server.local_sources.materialize(raw['sources'])
                 raw.pop('designModel',None)
                 if raw.get('kind')=='test-cases' and raw.get('useDesignModel'):
                     raw['designModel']=self.server.automation.generation_model(raw.get('taskId'))
@@ -268,6 +275,8 @@ def make_server(port=8878, folder=None, runner=None):
     options = {"runner": runner} if runner else {}
     server.store = JobStore(folder or ROOT / ".local/workbench/jobs", **options)
     server.workspace = Workspace((server.store.folder / 'workspace.json') if folder else ROOT / '.local/workbench/workspace.json', server.store)
+    server.local_sources = LocalSources(server.workspace.path.parent)
+    server.workspace.resolve_sources = server.local_sources.materialize
     (server.workspace.path.parent / 'knowledge/notes').mkdir(parents=True, exist_ok=True)
     server.knowledge = Knowledge(server.workspace.path.parent / 'knowledge', {
         'product': ROOT / 'knowledge/product',
