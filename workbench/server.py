@@ -20,6 +20,7 @@ from .assets import Assets
 from .history_search import HistorySearch
 from . import design_assist as assist
 from . import template_assets
+from .codegen import generate, environment_form
 from .automation import Automation
 from .health_execution import HealthExecutor
 import subprocess
@@ -175,7 +176,8 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("JSON request must be an object")
             route = urlsplit(self.path).path.split("/")
             if len(route)==4 and route[:3]==['','api','automation']:
-                methods={'intake':self.server.automation.intake,'publish':self.server.automation.publish,'import-ui':self.server.automation.import_ui,'bind':self.server.automation.bind,
+                methods={'generate':lambda value:generate(self.server.automation,value,self.server.automation.executor.root),
+                         'environment-config':lambda value:environment_form(self.server.automation.executor.root,value),'intake':self.server.automation.intake,'publish':self.server.automation.publish,'import-ui':self.server.automation.import_ui,'bind':self.server.automation.bind,
                          'export-assets':self.server.automation.export_assets,'import-assets':self.server.automation.import_assets,
                          'suite':self.server.automation.suite,'plan':self.server.automation.plan,'start':self.server.automation.start,
                          'cancel':self.server.automation.cancel,'control':self.server.automation.control,'delete-run':self.server.automation.delete_run,'model':self.server.automation.save_model,
