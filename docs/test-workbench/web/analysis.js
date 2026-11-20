@@ -38,7 +38,7 @@ async function aiStart(){
  a.submitting=true;a.error='';const key=aiSourcesKey(t);save();render();
  try{
   const request={taskId:t.id,provider:a.provider,model:a.model,instructions:a.instructions,sources:t.sources.map(sourcePayload),answers:a.answers||[],historyRefs:(a.historyRefs||[]).map(r=>({id:r.id,hash:r.hash}))};
-  if(typeof daMappingCurrent==='function'&&daMappingCurrent(t))Object.assign(request,{mappingJobId:t.ai.assist.mapping.id,mappingReviewDigest:t.ai.assist.mapping.reviewDigest});
+  if((a.historyRefs||[]).length&&typeof daMappingCurrent==='function'&&daMappingCurrent(t))Object.assign(request,{mappingJobId:t.ai.assist.mapping.id,mappingReviewDigest:t.ai.assist.mapping.reviewDigest});
   const job=await aiRequest('/api/jobs',request,30000);
   if(a.job)(a.history||=[]).push({jobId:a.job.id,createdAt:a.job.createdAt,status:a.job.status});
   a.job=job;a.sourceKey=key;a.answers=[];
