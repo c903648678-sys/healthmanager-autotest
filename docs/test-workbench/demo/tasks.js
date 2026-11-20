@@ -47,6 +47,7 @@ taskPage=function(){const t=task(),lc=taskLC(t);const toolbar=`<div class="card 
 const originalEnterJourney=enterJourney;
 enterJourney=function(key,id,part){const t=data.tasks.find(t=>t.id===id);if(!t||taskLC(t).location==='trash')return toast('任务不存在或已移入回收站');if(!taskEditable(t)){taskId=id;page='task';render();return;}return originalEnterJourney(key,id,part);};
 chooseJourney=function(key){
+  if(key==='design') return registerDesignRequirement();
   const current=data.tasks.find(t=>t.id===taskId && taskEditable(t)) || data.tasks.find(taskEditable);
   if(current) return enterJourney(key,current.id,current.activeJourney===key?current.activeStep:undefined);
   const record={...blankTask(),id:'TASK-'+crypto.randomUUID(),name:'健康管理测试'};
@@ -54,6 +55,62 @@ chooseJourney=function(key){
   enterJourney(key,record.id);
   flushWorkspace().catch(()=>{/* The workspace shows its existing recovery controls. */});
 };
+function registerDesignRequirement(){
+  const findRecord = fe => data.tasks.find(t =>
+    (t.requirementNo||'').trim().toLowerCase()===fe.trim().toLowerCase() && taskLC(t).location!=='trash');
+  modal('登记测试需求',`
+    <label>FE 编号（必填）<input name="requirementNo" required maxlength="75" placeholder="例如 FE-12345"></label>
+    <label>需求描述（必填）<textarea name="description" required maxlength="5000" rows="6"
+      placeholder="说明要测试的功能、期望行为及已知限制"></textarea></label>
+    <p class="subtitle">已有相同 FE 编号时，继续原需求的设计记录。</p>
+  `,'进入需求设计',form=>{
+    const fe=form.get('requirementNo').trim();
+    const description=form.get('description').trim();
+    const fields=$('#modalForm').elements;
+    for(const [name,value,message] of [['requirementNo',fe,'请输入 FE 编号'],['description',description,'请输入需求描述']]){
+      if(!value){
+        fields.namedItem(name).setCustomValidity(message);
+        fields.namedItem(name).reportValidity();
+        return false;
+      }
+    }
+
+    let record=findRecord(fe);
+    if(record && !taskEditable(record)) return enterJourney('design',record.id);
+    if(record?.description && record.description.trim()!==description){
+      fields.description.setCustomValidity('此 FE 已有需求描述。请沿用原描述进入，再在需求变更中更新。');
+      fields.description.reportValidity();
+      return false;
+    }
+    if(!record){
+      record={...blankTask(),id:'TASK-'+crypto.randomUUID(),name:fe+' 需求测试',requirementNo:fe,description};
+      data.tasks.unshift(record);
+    }
+    record.description=description;
+    if(!(record.sources||[]).length){
+      const size=new TextEncoder().encode(description).length;
+      record.sources=[{id:'src-'+crypto.randomUUID(),name:fe+' 需求描述',origin:'需求登记',path:'',
+        revision:1,status:'可读取',text:description,size,sizeLabel:(size/1024).toFixed(1)+' KB'}];
+      record.sourcesConfirmedKey=sourceKey(record);
+      record.sourcesConfirmedAt=new Date().toISOString();
+    }
+    const step=record.activeJourney==='design'?record.activeStep:'requirements';
+    enterJourney('design',record.id,step||'requirements');
+    flushWorkspace().catch(()=>{/* 保存失败由工作区显示恢复入口。 */});
+  });
+  const form=$('#modalForm');
+  const fe=form.elements.requirementNo;
+  const description=form.elements.description;
+  fe.oninput=()=>{
+    fe.setCustomValidity('');
+    description.setCustomValidity('');
+  };
+  fe.onchange=()=>{
+    if(!description.value.trim()) description.value=findRecord(fe.value)?.description||'';
+  };
+  description.oninput=()=>description.setCustomValidity('');
+  fe.focus();
+}
 async function applyTaskAction(t,action,fields){if(taskInFlight(t))return toast('仍有生成或模拟执行进行中，请取消并等待停止后再操作');taskActionBusy=true;$('#content').inert=true;try{await flushWorkspace();const response=await workspaceRequest('/api/tasks/'+encodeURIComponent(t.id)+'/'+action,{revision:workspaceRevision,...fields});data=response.data;workspaceRevision=response.revision;workspaceStamp=JSON.stringify(data);workspaceDirty=false;originalLocalSave();if(action==='purge'){page='home';taskFilter='trash';}if(action==='delete'||action==='archive'){page='home';taskFilter=action==='delete'?'trash':'archive';}if(action==='restore')taskFilter=taskLC(data.tasks.find(x=>x.id===t.id)).location==='archive'?'archive':'all';if(action==='unarchive')taskFilter='all';render();toast(taskActionNames[action]+'成功');}catch(e){if(e.message.includes('工作区已被其他页面')){workspaceError=e.message;render();}toast(e.message)}finally{taskActionBusy=false;$('#content').inert=false;}}
 function manageTask(action,id){const t=data.tasks.find(t=>t.id===id);if(!t||!taskActions(t).includes(action))return toast('当前状态不支持此操作');if(taskInFlight(t))return toast('此任务仍在生成或执行，请先取消并等待停止');
  if(action==='purge')return modal('彻底删除任务',`<p>确定彻底删除任务「<strong>${esc(t.name)}</strong>」吗？</p><div class="notice" style="margin-top:16px">任务及关联生成历史将被删除，无法恢复。<br>正式用例、独立执行报告、知识库和原始规格文件保留。</div>`,'确认删除',()=>{applyTaskAction(t,action,{confirmName:t.name});});
