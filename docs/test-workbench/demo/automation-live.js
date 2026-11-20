@@ -357,7 +357,7 @@ const lpActOld=act;
 act=function(action){const [name,arg,sub]=action.split(':');
  if(name==='editProductEnv')return editProductEnvironment();
  if(name==='generateScript')return openScriptDesign(arg);
- if(name==='autoTask'){page='assets';abTab='published';render();toast('选择正式 API 或 UI 用例，点击「设计并生成脚本」');return}if(name==='laProduct'){laProduct=decodeURIComponent(arg);laSubproduct='';laPage=0;render();return}if(name==='laLayer'){laLayer=arg;laSubproduct='';laPage=0;render();return}if(name==='laPage'){laPage=Math.max(0,laPage+(arg==='next'?1:-1));render();return}if(name==='laReset'){laQuery='';laSubproduct='';laPage=0;render();return}if(name==='lpTab'){lpTab=arg;render();return}if(name==='lpRefresh'){lpEnvs=null;return lpLoad()}
+ if(action==='scenario:automation'||name==='autoTask'){page='assets';abTab='published';render();toast('选择正式 API 或 UI 用例，点击「设计并生成脚本」');return}if(name==='laProduct'){laProduct=decodeURIComponent(arg);laSubproduct='';laPage=0;render();return}if(name==='laLayer'){laLayer=arg;laSubproduct='';laPage=0;render();return}if(name==='laPage'){laPage=Math.max(0,laPage+(arg==='next'?1:-1));render();return}if(name==='laReset'){laQuery='';laSubproduct='';laPage=0;render();return}if(name==='lpTab'){lpTab=arg;render();return}if(name==='lpRefresh'){lpEnvs=null;return lpLoad()}
  if(name==='lpType'){lpType=arg;lpPage=0;render();return}if(name==='lpPage'){lpPage=Math.max(0,lpPage+(arg==='next'?1:-1));render();return}
  if(name==='lpAssets'){page='assets';abTab='published';render();return}
  if(name==='lpSuiteNew')return lpSuiteDialog();if(name==='lpSuiteEdit')return lpSuiteDialog(arg);

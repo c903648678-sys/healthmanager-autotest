@@ -46,7 +46,14 @@ taskPage=function(){const t=task(),lc=taskLC(t);const toolbar=`<div class="card 
 };
 const originalEnterJourney=enterJourney;
 enterJourney=function(key,id,part){const t=data.tasks.find(t=>t.id===id);if(!t||taskLC(t).location==='trash')return toast('任务不存在或已移入回收站');if(!taskEditable(t)){taskId=id;page='task';render();return;}return originalEnterJourney(key,id,part);};
-chooseJourney=function(key){const available=data.tasks.filter(taskEditable);if(!available.length){if(key==='design')return newTask(false);return toast('暂无进行中的任务，请新建或恢复任务');}modal(journeys[key].name+'：选择任务',`<label>测试任务<select name="task">${key==='design'?'<option value="new">新建测试任务</option>':''}${available.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}</select></label>`,'继续',f=>{if(f.get('task')==='new'){closeModal();newTask(false);return false;}enterJourney(key,f.get('task'));});};
+chooseJourney=function(key){
+  const current=data.tasks.find(t=>t.id===taskId && taskEditable(t)) || data.tasks.find(taskEditable);
+  if(current) return enterJourney(key,current.id,current.activeJourney===key?current.activeStep:undefined);
+  const record={...blankTask(),id:'TASK-'+crypto.randomUUID(),name:'健康管理测试'};
+  data.tasks.unshift(record);
+  enterJourney(key,record.id);
+  flushWorkspace().catch(()=>{/* The workspace shows its existing recovery controls. */});
+};
 async function applyTaskAction(t,action,fields){if(taskInFlight(t))return toast('仍有生成或模拟执行进行中，请取消并等待停止后再操作');taskActionBusy=true;$('#content').inert=true;try{await flushWorkspace();const response=await workspaceRequest('/api/tasks/'+encodeURIComponent(t.id)+'/'+action,{revision:workspaceRevision,...fields});data=response.data;workspaceRevision=response.revision;workspaceStamp=JSON.stringify(data);workspaceDirty=false;originalLocalSave();if(action==='purge'){page='home';taskFilter='trash';}if(action==='delete'||action==='archive'){page='home';taskFilter=action==='delete'?'trash':'archive';}if(action==='restore')taskFilter=taskLC(data.tasks.find(x=>x.id===t.id)).location==='archive'?'archive':'all';if(action==='unarchive')taskFilter='all';render();toast(taskActionNames[action]+'成功');}catch(e){if(e.message.includes('工作区已被其他页面')){workspaceError=e.message;render();}toast(e.message)}finally{taskActionBusy=false;$('#content').inert=false;}}
 function manageTask(action,id){const t=data.tasks.find(t=>t.id===id);if(!t||!taskActions(t).includes(action))return toast('当前状态不支持此操作');if(taskInFlight(t))return toast('此任务仍在生成或执行，请先取消并等待停止');
  if(action==='purge')return modal('彻底删除任务',`<p>确定彻底删除任务「<strong>${esc(t.name)}</strong>」吗？</p><div class="notice" style="margin-top:16px">任务及关联生成历史将被删除，无法恢复。<br>正式用例、独立执行报告、知识库和原始规格文件保留。</div>`,'确认删除',()=>{applyTaskAction(t,action,{confirmName:t.name});});
