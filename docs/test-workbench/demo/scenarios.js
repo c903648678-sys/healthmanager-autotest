@@ -2,7 +2,7 @@
 const journeys = {
   design: {name:'测试设计',icon:'✎',desc:'从新需求开始，形成测试方案与用例。',steps:['requirements','plan','cases'],output:'已审阅用例与待确认问题',hint:'只做设计也可以结束，不必立即执行。'},
   manual: {name:'手工执行',icon:'☑',desc:'已有用例，直接操作并记录测试结果。',steps:['execution','summary'],output:'手工结果、证据与执行汇总',hint:'选择用例，录入实际结果；失败或阻塞时记录问题。'},
-  automation: {name:'实现自动化',icon:'⌘',desc:'将已确认用例转为可验证的候选脚本。',steps:['cases','execution'],output:'已验证实现或明确能力缺口',hint:'用例确认 → 生成候选 → 检查与验证，三种状态分别记录。'},
+  automation: {name:'实现自动化',icon:'⌘',desc:'将已确认用例转为可验证的候选脚本。',steps:['execution'],output:'生成并绑定本任务的测试脚本',hint:'选择已发布用例，设计并审阅脚本。'},
   regression: {name:'自动化回归',icon:'▷',desc:'选择已有自动化，运行本机或 CI 回归。',steps:['execution','summary'],output:'模拟运行记录与汇总',hint:'只运行已确认、已验证的示例；本 Demo 不执行真实脚本。'},
   issues: {name:'处理问题',icon:'⚑',desc:'确认原因、记录处理，再安排回归。',steps:['issues','execution','summary'],output:'问题处理与回归记录',hint:'可以保留未解决问题，不强制关闭，也不改写历史结果。'},
   change: {name:'需求变更',icon:'↻',desc:'查看变更影响，复核相关用例与实现。',steps:['changes','cases','execution','summary'],output:'变更记录、待复核资产与回归结果',hint:'明确选择受影响用例。接受变更后，相关用例必须重新确认。'},
@@ -41,10 +41,13 @@ function taskPage(){
   if(!j.steps.includes(tab))tab=j.steps[0];
   const idx=j.steps.indexOf(tab);
   return `<button class="link small" data-nav="home">← 返回工作台</button>`+
-    title(j.name,`${esc(t.name)} · 需求单号：${esc(t.requirementNo||'未填写')} · ${esc(t.version)} · ${t.id}`,btn('切换场景','switchScene','small'))+
+    title(esc(t.name),`目标版本 ${esc(t.version||'待填写')}${t.requirementNo?' · 需求 '+esc(t.requirementNo):''}`)+
+    `<nav class="task-sections" aria-label="任务内工作">${['design','automation','issues','change','summary'].map(key=>
+      `<button type="button" aria-current="${journey===key?'page':'false'}" data-action="direct:${key}:${esc(t.id)}">${esc(journeys[key].name)}</button>`
+    ).join('')}</nav>`+
     `<div class="journey-banner"><div><b>本次目标：${j.output}</b><p class="subtitle">${j.hint}</p></div>${badge(t.stage)}</div>`+
     `<div class="journey-steps" role="tablist">${j.steps.map((s,i)=>`<button role="tab" aria-selected="${tab===s}" data-tab="${s}" class="${s===tab?'active':''}"><span>${i+1}</span>${stepName(s)}</button>`).join('')}</div>`+
-    ({sources,requirements,plan,cases,execution,issues,summary,changes}[tab])()+
+    (journey==='automation'?taskScriptPanel(t):({sources,requirements,plan,cases,execution,issues,summary,changes}[tab])())+
     `<div class="journey-footer"><span class="subtitle">步骤 ${idx+1} / ${j.steps.length} · 可保存后稍后继续</span><div class="actions">${idx?btn('← 上一步','step:'+j.steps[idx-1],''):''}${idx<j.steps.length-1?btn('下一步：'+stepName(j.steps[idx+1]),'step:'+j.steps[idx+1],'primary'):btn('保存并返回工作台','finishScene','primary')}</div></div>`;
 }
 

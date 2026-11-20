@@ -130,7 +130,7 @@ render=function(){automationRender();if(page==='automation'){
  Object.entries(fields).forEach(([id,set])=>{if($('#'+id))$('#'+id).onchange=e=>{set(e.target.value);autoPicked.clear();if(id==='autoSource')autoFeature='全部特性';render()}});
  [['autoEnvironment',v=>autoEnvironment=v],['autoVersion',v=>autoVersion=v],['autoMachine',v=>autoMachine=v],['autoTrigger',v=>autoTrigger=v]].forEach(([id,set])=>{if($('#'+id))$('#'+id).oninput=e=>set(e.target.value)});
  $$('[data-auto-case]').forEach(el=>el.onchange=()=>{el.checked?autoPicked.add(el.dataset.autoCase):autoPicked.delete(el.dataset.autoCase);render()});
- }if(page==='task'&&task().id)$('#content').insertAdjacentHTML('beforeend',`<div class="card pad"><h3>验证当前任务的特性资产</h3><p>将当前任务用例带入独立自动化执行页，检查脚本准入和执行范围。</p>${btn('验证此特性','autoTask:'+taskId,'small')}</div>`);
+ }
 };
 const autoPreviousJourney=enterJourney;
 enterJourney=function(key,id,part){if(key==='regression'){return act('autoTask:'+id)}return autoPreviousJourney(key,id,part)};

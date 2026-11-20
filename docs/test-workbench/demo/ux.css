@@ -98,3 +98,8 @@
 }
 
 .environment-login .env-scan-link { display: inline-flex; align-items: center; padding: 5px 10px; border: 1px solid #dde3ed; border-radius: 6px; background: white; color: inherit; text-decoration: none; }
+
+.task-sections {display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 1rem;padding-bottom:.55rem;border-bottom:1px solid #d7dee8}
+.task-sections button {border:0;background:transparent;color:#475569;padding:.5rem .85rem}
+.task-sections button[aria-current="page"] {background:#e8efff;color:#1747a5;font-weight:650}
+.task-name-link {font-weight:650;text-align:left;overflow-wrap:anywhere}

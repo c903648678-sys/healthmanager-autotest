@@ -357,7 +357,7 @@ const lpActOld=act;
 act=function(action){const [name,arg,sub]=action.split(':');
  if(name==='editProductEnv')return editProductEnvironment();
  if(name==='generateScript')return openScriptDesign(arg);
- if(action==='scenario:automation'||name==='autoTask'){page='assets';abTab='published';render();toast('选择正式 API 或 UI 用例，点击「设计并生成脚本」');return}if(name==='laProduct'){laProduct=decodeURIComponent(arg);laSubproduct='';laPage=0;render();return}if(name==='laLayer'){laLayer=arg;laSubproduct='';laPage=0;render();return}if(name==='laPage'){laPage=Math.max(0,laPage+(arg==='next'?1:-1));render();return}if(name==='laReset'){laQuery='';laSubproduct='';laPage=0;render();return}if(name==='lpTab'){lpTab=arg;render();return}if(name==='lpRefresh'){lpEnvs=null;return lpLoad()}
+ if(name==='autoTask'){page='assets';abTab='published';render();toast('选择正式 API 或 UI 用例，点击「设计并生成脚本」');return}if(name==='laProduct'){laProduct=decodeURIComponent(arg);laSubproduct='';laPage=0;render();return}if(name==='laLayer'){laLayer=arg;laSubproduct='';laPage=0;render();return}if(name==='laPage'){laPage=Math.max(0,laPage+(arg==='next'?1:-1));render();return}if(name==='laReset'){laQuery='';laSubproduct='';laPage=0;render();return}if(name==='lpTab'){lpTab=arg;render();return}if(name==='lpRefresh'){lpEnvs=null;return lpLoad()}
  if(name==='lpType'){lpType=arg;lpPage=0;render();return}if(name==='lpPage'){lpPage=Math.max(0,lpPage+(arg==='next'?1:-1));render();return}
  if(name==='lpAssets'){page='assets';abTab='published';render();return}
  if(name==='lpSuiteNew')return lpSuiteDialog();if(name==='lpSuiteEdit')return lpSuiteDialog(arg);
@@ -399,7 +399,7 @@ render=function(){
   current.scrollTop=top;
   current.scrollLeft=left;
  }
- if(['automation','assets','reports'].includes(page)&&!lpData&&!lpBusy&&!lpError)setTimeout(lpLoad,0);if(page==='task'&&tab==='cases'&&!lpData&&!lpBusy&&!lpError)setTimeout(lpLoad,0);if($('#lpQuery'))$('#lpQuery').onchange=e=>{lpQuery=e.target.value;lpPage=0;render()};if($('#laQuery'))$('#laQuery').onchange=e=>{laQuery=e.target.value;laPage=0;render()};if($('#laSubproduct'))$('#laSubproduct').onchange=e=>{laSubproduct=e.target.value;laPage=0;render()};if($('#laSize'))$('#laSize').onchange=e=>{laSize=Number(e.target.value);laPage=0;render()};const header=$('header .demo');if(header)header.textContent='本地测试工作台 · UI 真实执行需运行前检查'};
+ if(['automation','assets','reports'].includes(page)&&!lpData&&!lpBusy&&!lpError)setTimeout(lpLoad,0);if(page==='task'&&(tab==='cases'||journey==='automation')&&!lpData&&!lpBusy&&!lpError)setTimeout(lpLoad,0);if($('#lpQuery'))$('#lpQuery').onchange=e=>{lpQuery=e.target.value;lpPage=0;render()};if($('#laQuery'))$('#laQuery').onchange=e=>{laQuery=e.target.value;laPage=0;render()};if($('#laSubproduct'))$('#laSubproduct').onchange=e=>{laSubproduct=e.target.value;laPage=0;render()};if($('#laSize'))$('#laSize').onchange=e=>{laSize=Number(e.target.value);laPage=0;render()};const header=$('header .demo');if(header)header.textContent='本地测试工作台 · UI 真实执行需运行前检查'};
 setInterval(()=>{if(!lpBusy&&(lpData?.runs.some(r=>['preparing','running','pausing','paused','cancelling'].includes(r.status))||lpEnvs?.environments?.some(e=>e.authOperation?.status==='running'))){if(lpEnvs?.environments?.some(e=>e.authOperation?.status==='running'))lpEnvs=null;lpLoad(Boolean(lpEnvs))}},2000);
 
 // Admission is separate from linking an existing formal case to a UI script.
@@ -622,4 +622,17 @@ function editProductEnvironment() {
       return false;
     });
   }).catch(e=>toast(e.message));
+}
+
+function taskScriptPanel(t) {
+  const assets = lpList('assets').filter(a => {
+    const c = lpContent(a);
+    return c.source?.taskId === t.id && ['API','UI'].includes(c.layer);
+  });
+  const rows = assets.map(a => {
+    const c = lpContent(a);
+    return `<div class="list-item row"><span>${esc(c.title)} · ${esc(c.layer)} · v${a.revision}</span>${btn('设计并生成脚本','generateScript:'+a.id,'small')}</div>`;
+  }).join('');
+  const next = caseAccepted(t) ? btn('发布设计用例','lpPublish','small') : btn('进入测试设计','direct:design:'+t.id,'small');
+  return `<section class="card pad"><h2>当前任务的自动化用例</h2>${rows || '<p>确认并发布本任务的 API 或 UI 用例后，即可设计脚本。</p>'}<div class="actions">${next}${btn('打开正式用例库','autoTask:'+t.id,'small')}</div></section>`;
 }
