@@ -9,6 +9,7 @@
 ```powershell
 git clone https://github.com/c903648678-sys/healthmanager-autotest.git
 cd healthmanager-autotest
+$env:PYTHONUTF8 = "1"
 python scripts/bootstrap.py
 python scripts/run.py doctor
 python scripts/run.py verify
