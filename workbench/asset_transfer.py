@@ -1,7 +1,8 @@
 """Portable formal assets and suites. Import is validated before a single save."""
 from copy import deepcopy
 
-from .contracts import digest
+from .contracts import ROOT, digest
+from .source_digest import matches_digest
 
 FORMAT = "clouddoc-assets"
 KINDS = ("assets", "suites")
@@ -149,7 +150,12 @@ def prepare_import(automation, package):
             inventory = {row["assetId"]: row for row in automation.inventory.get()["cases"]}
         try:
             current = automation._row_binding(inventory.get(binding["inventoryId"]), content["product"])
-            if current["files"] != binding["files"]:
+            files = binding["files"]
+            if current["files"].keys() != files.keys() or any(
+                current["files"][name] != expected and
+                (not (ROOT/name).is_file() or not matches_digest((ROOT/name).read_bytes(), expected))
+                for name, expected in files.items()
+            ):
                 raise ValueError("脚本或规格与导出版本不一致，请同步代码并刷新资产")
         except ValueError as exc:
             report["conflicts"].append(key[0] + "：" + str(exc))

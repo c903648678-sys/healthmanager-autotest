@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
+from .source_digest import source_digest
 from .workspace import Conflict
 
 
@@ -38,14 +39,30 @@ def compile_case(layer, design):
                   f'        response = client.request({method!r}, {path!r}, json={body!r})',
                   f'    assert response.status_code == {status}']
         if expected:
-            lines += ['    data = response.json()',f'    for key, value in {expected!r}.items():','        assert data[key] == value']
+            lines += ['    data = response.json()',f'    for key, value in {expected!r}.items():',
+                      '        assert same_json(data[key], value)', '', '',
+                      'def same_json(actual, expected):',
+                      '    if isinstance(actual, bool) or isinstance(expected, bool):',
+                      '        return actual is expected',
+                      '    if isinstance(expected, dict):',
+                      '        return isinstance(actual, dict) and actual.keys() == expected.keys() and all(',
+                      '            same_json(actual[key], value) for key, value in expected.items())',
+                      '    if isinstance(expected, list):',
+                      '        return isinstance(actual, list) and len(actual) == len(expected) and all(',
+                      '            same_json(left, right) for left, right in zip(actual, expected))',
+                      '    return actual == expected']
     elif layer == 'UI':
+        status = design.get('status')
+        if status is not None and (type(status) != int or not 100 <= status <= 599):
+            raise ValueError('预期 HTTP 状态码须为 100 到 599 的整数')
         steps = design.get('steps', [])
         if not isinstance(steps,list) or len(steps)>30:
             raise ValueError('最多支持 30 个页面步骤')
         lines += ['from playwright.sync_api import expect, sync_playwright','','','def test_generated():',f'    config = {config}',
                   '    with sync_playwright() as p:',"        browser = p.chromium.launch(headless=os.getenv('HM_HEADED') != '1')",
-                  '        try:',"            page = browser.new_page(base_url=config['base_url'])",f'            page.goto({path!r})']
+                  '        try:',"            page = browser.new_page(base_url=config['base_url'])",f'            response = page.goto({path!r})',
+                  '            assert response is not None',
+                  '            assert response.ok' if status is None else f'            assert response.status == {status}']
         for step in steps:
             if not isinstance(step,dict): raise ValueError('页面步骤须为对象')
             locator = f'page.get_by_test_id({field(step,"testId")!r})'
@@ -99,11 +116,11 @@ def generate(auto, raw, root):
                 stage.mkdir()
                 for name, data in files.items(): (stage/name).write_bytes(data)
                 stage.rename(target)
-        if any((target/name).read_bytes()!=data for name,data in files.items()):
+        if any(source_digest((target/name).read_bytes())!=source_digest(data) for name,data in files.items()):
             raise Conflict('生成目录已有不同内容')
         prefix = target.relative_to(root).as_posix()
         content['binding'] = {'inventoryId':prefix,'layer':content['layer'],'admission':'静态可执行',
-                              'files':{prefix+'/'+name:hashlib.sha256(data).hexdigest() for name,data in files.items()}}
+                              'files':{prefix+'/'+name:source_digest(data) for name,data in files.items()}}
         content['scriptDesign'] = design
         return auto._version('assets',raw,content,'asset')
 

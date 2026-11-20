@@ -16,9 +16,9 @@ class ScriptDesignFlow(unittest.TestCase):
     def test_preview_publish_execute_and_report(self):
         class Product(BaseHTTPRequestHandler):
             def do_GET(self):
-                self.send_response(200)
-                body = b'{"ready":true}' if self.path == '/health' else b'<title>Test</title><button data-testid="go" onclick="this.textContent=\'Done\'">Start</button>'
-                self.send_header('Content-Type','application/json' if self.path=='/health' else 'text/html')
+                self.send_response(503 if self.path == '/unavailable' else 200)
+                body = b'{"ready":true}' if self.path == '/health' else b'{"ready":1,"off":0,"items":[{"ok":0}]}' if self.path == '/typed' else b'<title>Test</title><button data-testid="go" onclick="this.textContent=\'Done\'">Start</button>'
+                self.send_header('Content-Type','application/json' if self.path in ('/health','/typed') else 'text/html')
                 self.send_header('Content-Length',str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -43,14 +43,22 @@ class ScriptDesignFlow(unittest.TestCase):
             try:
                 request('environment-config',{'save':True,'fields':{'environment':'fixture','api_base_url':product_url,
                         'health_path':'/health','base_url':product_url,'expected_title':'Test'}})
-                for layer,design in [('API',dict(path='/health',method='GET',status=200,expected={'ready':True})),
-                                     ('UI',dict(path='/',steps=[{'action':'click','testId':'go'}],testId='go',text='Done'))]:
+                scenarios = [
+                    ('API',dict(path='/health',status=200,expected={'ready':True}),'passed'),
+                    ('API',dict(path='/typed',status=200,expected={'ready':True}),'failed'),
+                    ('API',dict(path='/typed',status=200,expected={'off':False}),'failed'),
+                    ('API',dict(path='/typed',status=200,expected={'items':[{'ok':False}]}),'failed'),
+                    ('UI',dict(path='/',steps=[{'action':'click','testId':'go'}],testId='go',text='Done'),'passed'),
+                    ('UI',dict(path='/unavailable',text='Test'),'failed'),
+                    ('UI',dict(path='/unavailable',text='Test',status=503),'passed'),
+                ]
+                for layer, design, expected in scenarios:
                     content = {'title':layer+' fixture','product':'健康管理','subproduct':'测试','feature':'基础',
                                'spec':{'steps':'测试','expected':'通过'},'layer':layer,'source':{},'binding':None}
                     asset = wb.automation._version('assets',{},content,'asset')
                     payload = {'id':asset['id'],'expectedRevision':1,'design':design}
                     preview = request('generate',payload)
-                    self.assertFalse((root/layer.lower()/'testcases').exists())
+                    self.assertFalse((root/layer.lower()/'testcases/_generated'/preview['digest']).exists())
                     with self.assertRaises(HTTPError) as conflict:
                         request('generate',{**payload,'publish':True,'digest':'stale'})
                     self.assertEqual(conflict.exception.code,409)
@@ -62,8 +70,9 @@ class ScriptDesignFlow(unittest.TestCase):
                         run = request('runs/'+run['id'])
                         if run.get('finishedAt'): break
                         time.sleep(.1)
-                    self.assertEqual(run['status'],'passed',run.get('message'))
-                    self.assertEqual(run['report']['counts'],{'passed':1})
+                    self.assertEqual(run['status'],expected,run.get('message'))
+                    self.assertEqual(run['report']['counts'],{expected:1})
+                    self.assertIn(product_url,run['report']['environmentConfig'].values())
             finally:
                 for server in (wb,product): server.shutdown()
                 wb.store.shutdown()

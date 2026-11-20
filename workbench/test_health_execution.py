@@ -15,14 +15,14 @@ class HealthExecutionTests(unittest.TestCase):
             script.write_bytes((ROOT/'ui/tests/framework/test_browser.py').read_bytes())
             executor=HealthExecutor(root);executor.python=ROOT/'ui/.venv'/('Scripts/python.exe' if __import__('os').name=='nt' else 'bin/python')
             snapshot={'environment':'local','cases':[{'assetId':'a','content':{'title':'合成浏览器验证','binding':{'files':{'ui/testcases/local/test_main.py':hashlib.sha256(script.read_bytes()).hexdigest()}}}}]}
-            with patch('workbench.health_execution.validate'),patch.object(executor,'environments',return_value={'environments':[{'id':'local'}]}):
-                result=executor.execute(snapshot,root/'run',threading.Event(),lambda _:None)
-                self.assertEqual(result['status'],'passed')
-                self.assertEqual(result['results'][0]['status'],'passed')
-                script.write_text('def test_changed(): pass')
-                changed=executor.execute(snapshot,root/'changed',threading.Event(),lambda _:None)
-                self.assertEqual(changed['status'],'blocked')
-                self.assertIn('版本',changed['results'][0]['message'])
+            (root/'config.local.json').write_text('{"environment":"local","base_url":"http://localhost","expected_title":"fixture"}')
+            result=executor.execute(snapshot,root/'run',threading.Event(),lambda _:None)
+            self.assertEqual(result['status'],'passed')
+            self.assertEqual(result['results'][0]['status'],'passed')
+            script.write_text('def test_changed(): pass')
+            changed=executor.execute(snapshot,root/'changed',threading.Event(),lambda _:None)
+            self.assertEqual(changed['status'],'blocked')
+            self.assertIn('版本',changed['results'][0]['message'])
 
     def test_unconfigured_environment_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -107,3 +107,48 @@ class HealthExecutionTests(unittest.TestCase):
             finally:
                 service.shutdown()
                 thread.join()
+
+    def test_legacy_scripts_keep_first_server_when_environment_changes(self):
+        import json
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from contextlib import ExitStack
+        hits = []
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.server.server_port)
+                self.send_response(200)
+                self.send_header('Content-Length','0')
+                self.end_headers()
+        with ExitStack() as stack:
+            root = Path(stack.enter_context(tempfile.TemporaryDirectory()))
+            urls = []
+            for _ in range(2):
+                server = stack.enter_context(ThreadingHTTPServer(('127.0.0.1',0),Handler))
+                threading.Thread(target=server.serve_forever,daemon=True).start()
+                stack.callback(server.shutdown)
+                urls.append(f'http://127.0.0.1:{server.server_port}')
+            config = root/'config.local.json'
+            def configure(url):
+                config.write_text(json.dumps({'environment':'test','api_base_url':url,'health_path':'/health'}))
+            configure(urls[0])
+            executor = HealthExecutor(root)
+            executor.api_python = HealthExecutor().api_python
+            relative = 'api/testcases/legacy/test_main.py'
+            script = root/relative
+            script.parent.mkdir(parents=True)
+            source = (ROOT/'api/testcases/health/test_main.py').read_bytes().replace(b'\r\n',b'\n')
+            # Simulate an old binding made on a CRLF checkout and restored on LF.
+            digest = hashlib.sha256(source.replace(b'\n',b'\r\n')).hexdigest()
+            script.write_bytes(source)
+            cases = [{'assetId':name,'content':{'title':name,'layer':'API','binding':{'files':{relative:digest}}}}
+                     for name in ('first','second')]
+            snapshot = {'environment':'test','cases':cases,'environmentConfig':executor.freeze_environment('test',cases)}
+            def progress(message):
+                if message.endswith('second'):
+                    configure(urls[1])
+            result = executor.execute(snapshot,root/'run',threading.Event(),progress)
+            self.assertEqual(result['status'],'passed',result)
+            self.assertEqual(hits,[int(urls[0].split(':')[-1])]*2)
+            script.write_bytes(source+b'# real change')
+            with self.assertRaisesRegex(ValueError,'版本'):
+                executor.script(cases[0])

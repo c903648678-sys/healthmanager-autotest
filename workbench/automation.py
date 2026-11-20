@@ -9,6 +9,7 @@ import shutil
 import threading
 import uuid
 
+from .source_digest import source_digest
 from .contracts import ROOT, digest
 from .workspace import Conflict
 import ast
@@ -198,13 +199,13 @@ class Automation:
                     ast.parse(content)
                 except (SyntaxError,UnicodeError) as exc:
                     raise ValueError('脚本无法解析，请修复后重新扫描') from exc
-            files[row[key]]=hashlib.sha256(content).hexdigest()
+            files[row[key]]=source_digest(content)
         spec=json.loads((ROOT/row['specPath']).read_text(encoding='utf-8-sig'))
         if row.get('shared'):
             shared=(ROOT/row['scriptPath']).parent/'case_spec.json'
             if not shared.resolve().is_relative_to((ROOT/layer.lower()/'testcases').resolve()):raise ValueError('公共规格路径无效')
             business=json.loads(shared.read_text(encoding='utf-8-sig'))
-            files[shared.relative_to(ROOT).as_posix()]=hashlib.sha256(shared.read_bytes()).hexdigest()
+            files[shared.relative_to(ROOT).as_posix()]=source_digest(shared.read_bytes())
         else:business=spec
         if any(row.get(k,'')!=business.get(k,'') for k in ('steps','expected','preconditions')) or row['title']!=(business.get('case_name') or spec.get('case_name') or (ROOT/row['specPath']).parent.name):
             raise ValueError('规格已变化，请先刷新测试资产，再核对关联')
@@ -387,6 +388,8 @@ class Automation:
                  'snapshot':{'suiteId':suite_id,'suite':suite,'plan':deepcopy(plan['versions'][-1]) if plan else None,'cases':deepcopy(cases),'environment':env,'build':build,'contract':'ci_fresh_context','browserMode':mode,'workers':workers,'buildSource':build_source},
                  'name':suite['content']['name'],'product':suite['content']['product'],'environment':env,'build':build,'buildSource':build_source,
                  'results':[],'events':[],'total':len(cases),'executed':0,'counts':{},'report':None}
+            if hasattr(self.executor, 'freeze_environment'):
+                run['snapshot']['environmentConfig'] = self.executor.freeze_environment(env, cases)
             run['snapshot']['runId']=run['id']
             run['snapshot']['timeoutSeconds']=run_timeout_seconds(len(cases),workers)
             self._save({**self.state,'runs':[*self.state['runs'],run]})
@@ -439,7 +442,7 @@ class Automation:
         run['counts']=dict(Counter(r['status'] for r in rows))
         run['artifacts']=result.get('artifacts',[])
         run['report']={'scope':snapshot['suite']['content'],'environment':snapshot['environment'],'build':snapshot['build'],
-            'counts':deepcopy(run['counts']),'unexecuted':[r['assetId'] for r in rows if r['status'] in ('not_run','skipped')],
+            'environmentConfig':snapshot.get('environmentConfig',{}),'counts':deepcopy(run['counts']),'unexecuted':[r['assetId'] for r in rows if r['status'] in ('not_run','skipped')],
             'risks':[r.get('message','') for r in rows if r['status'] not in ('passed',)],'releaseDecision':'未作发布批准；当前报告仅代表本轮所选范围'}
 
     def run(self,run_id):

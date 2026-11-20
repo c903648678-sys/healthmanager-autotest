@@ -1,0 +1,4 @@
+api/testcases/**/*.py text eol=lf
+api/testcases/**/*.json text eol=lf
+ui/testcases/**/*.py text eol=lf
+ui/testcases/**/*.json text eol=lf

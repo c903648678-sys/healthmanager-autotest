@@ -14,6 +14,10 @@ def validate(project, root=None):
     if not path.exists():
         raise ValueError("Copy config.example.json to config.local.json and fill in product configuration")
     config = json.loads(path.read_text(encoding="utf-8"))
+    return validate_config(project, config)
+
+
+def validate_config(project, config):
     if not isinstance(config, dict):
         raise ValueError("Expected a configuration object")
     fields = ("api_base_url", "health_path") if project == "api" else ("base_url", "expected_title")
